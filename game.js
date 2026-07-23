@@ -58,7 +58,7 @@
   let selectedSong = null;
   let TRACK_BPM = 120;
   let TRACK_OFFSET = 0;
-  let AUDIO_LATENCY = 0.025;
+  let AUDIO_LATENCY = 0.04;
   let chart = { notes: [] };
   let chartCursor = 0;
   let countdownLeft = 0;

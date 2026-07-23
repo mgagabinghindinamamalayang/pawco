@@ -249,9 +249,9 @@ html, body {
 
 h1 {
   font-family: "Press Start 2P", monospace;
-  font-size: clamp(24px, 7vw, 36px);
+  font-size: clamp(28px, 8vw, 42px);
   line-height: 1.25;
-  margin-bottom: 10px;
+  margin-bottom: 36px;
   color: var(--paw-dark);
   text-shadow: 3px 3px 0 #ffd7a8;
 }
@@ -277,11 +277,15 @@ h2 {
   gap: 8px;
   justify-content: center;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin: 0 0 18px;
 }
 
-.selected-song {
-  display: none;
+.paw-label {
+  font-family: "Press Start 2P", monospace;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 4px 0 10px;
 }
 
 .menu-stack {
@@ -329,8 +333,8 @@ h2 {
 }
 
 .song-list-full {
-  max-height: min(46vh, 340px);
-  margin-bottom: 18px;
+  max-height: min(38vh, 280px);
+  margin-bottom: 12px;
 }
 
 .song-btn {

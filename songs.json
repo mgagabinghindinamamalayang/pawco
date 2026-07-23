@@ -24,6 +24,12 @@
       "title": "LOVE SCENARIO",
       "audio": "songs/love-scenario/audio.mp3",
       "chart": "songs/love-scenario/chart.json"
+    },
+    {
+      "id": "super-shy",
+      "title": "Super Shy",
+      "audio": "songs/super-shy/audio.mp3",
+      "chart": "songs/super-shy/chart.json"
     }
   ]
 }

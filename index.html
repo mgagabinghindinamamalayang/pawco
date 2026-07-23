@@ -36,28 +36,24 @@
 
       <!-- MAIN MENU -->
       <div id="title" class="overlay">
-        <p class="eyebrow">cute catch rhythm</p>
         <h1>PAWCO<br/>PULSE</h1>
-        <p class="tag">Catch fish on each note. Long notes = long fish.</p>
-        <div id="skinRow" class="skin-row" aria-label="Choose paw color"></div>
         <div class="menu-stack">
           <button id="playBtn" type="button">START GAME</button>
           <button id="quitBtn" class="btn-secondary" type="button">QUIT</button>
         </div>
-        <p class="hint">drag under the treats · Esc / P to pause</p>
       </div>
 
       <!-- SONG SELECT (after Start Game) -->
       <div id="songs" class="overlay hidden">
-        <p class="eyebrow">pick a track</p>
         <h2 class="panel-title">CHOOSE SONG</h2>
         <div id="songList" class="song-list song-list-full" role="listbox" aria-label="Choose song"></div>
+        <p class="paw-label">PAW COLOR</p>
+        <div id="skinRow" class="skin-row" aria-label="Choose paw color"></div>
         <button id="songsBackBtn" class="btn-secondary" type="button">BACK</button>
       </div>
 
       <!-- PAUSE -->
       <div id="pause" class="overlay hidden">
-        <p class="eyebrow">paused</p>
         <h2 class="pause-title">PAUSED</h2>
         <div class="menu-stack">
           <button id="resumeBtn" type="button">RESUME</button>
@@ -86,9 +82,7 @@
 
       <!-- QUIT / BYE -->
       <div id="bye" class="overlay hidden">
-        <p class="eyebrow">bye bye</p>
         <h2 class="panel-title">SEE YA!</h2>
-        <p class="tag">Thanks for playing Pawco Pulse</p>
         <button id="byeBackBtn" type="button">BACK TO MENU</button>
       </div>
     </div>
