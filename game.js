@@ -38,22 +38,23 @@
   const HOLD_PX = 78; // more forgiving while holding
   const LANES = [0.2, 0.35, 0.5, 0.65, 0.8].map((p) => p * W);
   const LOOKAHEAD_STEPS = 9;
-  const TRAVEL_TIME = 1.75;
   const COUNTDOWN_SECS = 3;
-  const HOLD_START_EARLY = 0.14;
-  const HOLD_START_LATE = 0.22;
-  const HOLD_END_GRACE = 0.1;
+  const HOLD_START_EARLY = 0.12;
+  const HOLD_START_LATE = 0.18;
+  const HOLD_END_GRACE = 0.06;
 
   // Synced from chart.json (Cupid cover analysis)
   let TRACK_BPM = 117.45;
-  let TRACK_OFFSET = 0.05; // slight lead compensation; raise if notes feel early
-  let AUDIO_LATENCY = 0.04;
+  let TRACK_OFFSET = 0; // chart times are absolute in mp3
+  let AUDIO_LATENCY = 0.025;
   let chart = { notes: [] };
   let chartCursor = 0;
   let countdownLeft = 0;
   let countdownFlash = "";
   let pauseSongTime = 0;
   let resumeState = "play";
+  const TAP_EARLY = 0.11;
+  const TAP_LATE = 0.13;
 
   // Pixel skins from your paw reference
   const SKINS = [
@@ -148,6 +149,7 @@
   function startTrack() {
     if (!track) return;
     track.currentTime = 0;
+    track.playbackRate = 1;
     const p = track.play();
     if (p && typeof p.then === "function") {
       p.then(() => { useTrack = true; }).catch(() => { useTrack = false; });
@@ -218,20 +220,52 @@
     return 440 * Math.pow(2, (m - 69) / 12);
   }
 
-  // A bit faster than before, still NORMAL → MID → HIGH (not frantic)
-  function currentBpm() {
-    // When the real track is playing, lock to song BPM so treats stay synced
-    if (trackPlaying()) return TRACK_BPM;
-    const t = elapsed;
-    if (t < 30) return 100 + t * 0.2;            // NORMAL ~100–106
-    if (t < 65) return 106 + (t - 30) * 0.45;     // MID → ~122
-    return Math.min(136, 122 + (t - 65) * 0.3);   // HIGH soft cap
+  // NORMAL → MID → HIGH → MAX — song + falls speed up together
+  function speedPhase() {
+    const t = trackPlaying() ? (track?.currentTime || elapsed) : elapsed;
+    if (t < 28) return "NORMAL";
+    if (t < 55) return "MID";
+    if (t < 85) return "HIGH";
+    return "MAX";
   }
 
   function speedLabel() {
-    if (elapsed < 30) return "NORMAL";
-    if (elapsed < 65) return "MID";
-    return "HIGH";
+    return speedPhase();
+  }
+
+  function playbackRate() {
+    switch (speedPhase()) {
+      case "NORMAL": return 1.0;
+      case "MID": return 1.12;
+      case "HIGH": return 1.25;
+      default: return 1.38; // MAX
+    }
+  }
+
+  function travelTime() {
+    switch (speedPhase()) {
+      case "NORMAL": return 1.85;
+      case "MID": return 1.5;
+      case "HIGH": return 1.22;
+      default: return 1.0; // falls in quicker
+    }
+  }
+
+  function currentBpm() {
+    if (trackPlaying()) return TRACK_BPM * playbackRate();
+    const t = elapsed;
+    if (t < 28) return 100 + t * 0.25;
+    if (t < 55) return 108 + (t - 28) * 0.55;
+    if (t < 85) return 123 + (t - 55) * 0.4;
+    return Math.min(155, 135 + (t - 85) * 0.35);
+  }
+
+  function applySongSpeed() {
+    if (!track) return;
+    const rate = playbackRate();
+    if (Math.abs(track.playbackRate - rate) > 0.001) {
+      track.playbackRate = rate;
+    }
   }
 
   function stepDuration() {
@@ -239,11 +273,10 @@
   }
 
   function density() {
-    // Slightly denser than before = feels a bit faster without rushing BPM
-    if (elapsed < 25) return 0.5;
-    if (elapsed < 50) return 0.65;
-    if (elapsed < 80) return 0.78;
-    return 0.9;
+    if (elapsed < 20) return 0.5;
+    if (elapsed < 45) return 0.68;
+    if (elapsed < 75) return 0.82;
+    return 0.95;
   }
 
   function trackPlaying() {
@@ -252,10 +285,11 @@
 
   function songTimeNow() {
     if (!track) return 0;
-    // Compensate output latency so hits line up with what you hear
+    // Small latency pad so notes line up with what you hear
     let lat = AUDIO_LATENCY;
     if (audioCtx) {
-      lat = Math.min(0.12, (audioCtx.outputLatency || 0) + (audioCtx.baseLatency || 0) || AUDIO_LATENCY);
+      const reported = (audioCtx.outputLatency || 0) + (audioCtx.baseLatency || 0);
+      if (reported > 0) lat = Math.min(0.08, Math.max(AUDIO_LATENCY, reported * 0.5));
     }
     return Math.max(0, track.currentTime - TRACK_OFFSET - lat);
   }
@@ -282,7 +316,7 @@
   }
 
   function spawnChartNote(note, index) {
-    const isHold = note.type === "hold" && note.len >= 0.5;
+    const isHold = note.type === "hold" && note.len >= 0.4;
     treats.push({
       x: laneForNote(index),
       y: SPAWN_Y,
@@ -291,9 +325,11 @@
       judged: false,
       kind: isHold ? "hold" : "fish",
       hitTime: note.t,
-      holdLen: isHold ? note.len : 0,
+      travel: travelTime(),
+      holdLen: isHold ? Math.min(1.0, note.len) : 0,
       holding: false,
       holdAcc: 0,
+      awayFrames: 0,
       chartIndex: index,
     });
   }
@@ -304,7 +340,7 @@
     while (chartCursor < chart.notes.length) {
       const n = chart.notes[chartCursor];
       // spawn early so it arrives on the note time
-      if (n.t - TRAVEL_TIME <= now) {
+      if (n.t - travelTime() <= now) {
         spawnChartNote(n, chartCursor);
         chartCursor++;
       } else break;
@@ -692,6 +728,7 @@
     const usingChart = !!(useTrack && chart.notes && chart.notes.length);
 
     if (usingChart && trackPlaying()) {
+      applySongSpeed();
       spawnDueChartNotes();
       const now = songTimeNow();
       if (Math.floor(now * TRACK_BPM / 60) !== Math.floor((now - dt) * TRACK_BPM / 60)) {
@@ -701,7 +738,9 @@
       for (const t of treats) {
         if (t.judged) continue;
 
-        const progress = (now - (t.hitTime - TRAVEL_TIME)) / TRAVEL_TIME;
+        // Visual fall based on song clock (arrives at hitTime)
+        const travel = t.travel || travelTime();
+        const progress = (now - (t.hitTime - travel)) / travel;
         t.y = SPAWN_Y + (HIT_Y - SPAWN_Y) * Math.min(1.0, Math.max(0, progress));
 
         const dx = Math.abs(t.x - tipX);
@@ -713,7 +752,6 @@
           if (now >= t.hitTime - HOLD_START_EARLY) t.y = HIT_Y;
 
           if (!t.holding) {
-            // Missed start window → clear (prevents stuck long notes)
             if (now > t.hitTime + HOLD_START_LATE) {
               missTreat(t);
             } else if (now >= t.hitTime - HOLD_START_EARLY && underHold) {
@@ -721,12 +759,14 @@
             }
           } else {
             t.holdAcc = Math.max(0, now - t.hitTime);
-            // Auto-finish near the end — no more stuck holds
-            if (now >= endTime - HOLD_END_GRACE) {
+            // Must finish cleanly at endTime (no stuck leftovers)
+            if (now >= endTime) {
+              finishHold(t);
+            } else if (now >= endTime - HOLD_END_GRACE && underHold) {
               finishHold(t);
             } else if (!underHold) {
               t.awayFrames = (t.awayFrames || 0) + 1;
-              if (t.awayFrames > 10) missTreat(t);
+              if (t.awayFrames > 12) missTreat(t);
             } else {
               t.awayFrames = 0;
             }
@@ -734,14 +774,26 @@
           continue;
         }
 
-        if (!t.judged && progress >= 0.88 && progress <= 1.12) {
-          if (underTap === "perfect") { catchTreat(t, "perfect"); continue; }
-          if (underTap === "good") { catchTreat(t, "good"); continue; }
+        // Tap: judge by absolute song time (more accurate than progress alone)
+        if (!t.judged) {
+          if (now >= t.hitTime - TAP_EARLY && now <= t.hitTime + TAP_LATE) {
+            if (underTap === "perfect" || (underTap === "good" && Math.abs(now - t.hitTime) <= 0.07)) {
+              catchTreat(t, "perfect");
+              continue;
+            }
+            if (underTap) {
+              catchTreat(t, "good");
+              continue;
+            }
+          }
+          if (now > t.hitTime + TAP_LATE) missTreat(t);
         }
-        if (!t.judged && progress > 1.14) missTreat(t);
       }
 
-      treats = treats.filter((t) => !t.judged || now < t.hitTime + (t.holdLen || 0) + 0.35);
+      treats = treats.filter((t) => {
+        if (!t.judged) return true;
+        return now < t.hitTime + (t.holdLen || 0) + 0.25;
+      });
 
       if (track && track.ended) endGame();
       return;
@@ -873,8 +925,10 @@
 
         ctx.fillStyle = "#6d6a63";
         ctx.font = "8px 'Press Start 2P', monospace";
-        const bpmShow = trackPlaying() ? Math.round(TRACK_BPM) : Math.round(currentBpm());
-        ctx.fillText(`${speedLabel()}  ${bpmShow} BPM`, 16, H - 16);
+        const bpmShow = Math.round(currentBpm());
+        const rate = trackPlaying() ? playbackRate() : 1;
+        const rateTxt = rate > 1.01 ? `  x${rate.toFixed(2)}` : "";
+        ctx.fillText(`${speedLabel()}${rateTxt}  ${bpmShow}`, 16, H - 16);
       }
     }
   }

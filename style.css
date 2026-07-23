@@ -54,67 +54,26 @@ html, body {
   pointer-events: none;
   position: absolute;
   left: 50%;
-  bottom: 6%;
-  transform: translateX(-50%) scale(0.85);
-  opacity: 0.28;
+  bottom: 5%;
+  transform: translateX(-50%);
+  opacity: 0.3;
   z-index: 1;
 }
 
-/* Go Kitty Go–style dancer */
-.dance-cat {
+.dance-canvas {
   display: block;
-  overflow: visible;
-  filter: drop-shadow(0 4px 0 rgba(43, 42, 40, 0.15));
+  width: 96px;
+  height: 128px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
-.dance-a .cat-root { animation: kitty-bounce 0.4s ease-in-out infinite; }
-.dance-b .cat-root { animation: kitty-bounce 0.4s ease-in-out infinite 0.2s; }
-
-.dance-a .arm-l { animation: paw-pump-l 0.4s ease-in-out infinite; transform-origin: 10px 48px; }
-.dance-a .arm-r { animation: paw-pump-r 0.4s ease-in-out infinite; transform-origin: 54px 48px; }
-.dance-b .arm-l { animation: paw-pump-l 0.4s ease-in-out infinite 0.2s; transform-origin: 10px 48px; }
-.dance-b .arm-r { animation: paw-pump-r 0.4s ease-in-out infinite 0.2s; transform-origin: 54px 48px; }
-
-.dance-a .leg-l, .dance-b .leg-l { animation: leg-step 0.4s ease-in-out infinite; transform-origin: 26px 62px; }
-.dance-a .leg-r, .dance-b .leg-r { animation: leg-step 0.4s ease-in-out infinite reverse; transform-origin: 38px 62px; }
-.dance-b .leg-l { animation-delay: 0.2s; }
-.dance-b .leg-r { animation-delay: 0.2s; }
-
-.dance-a .head { animation: head-bob 0.4s ease-in-out infinite; transform-origin: 32px 30px; }
-.dance-b .head { animation: head-bob 0.4s ease-in-out infinite 0.2s; transform-origin: 32px 30px; }
-
-.dance-a .cat-tail { animation: tail-wag 0.4s ease-in-out infinite; transform-origin: 44px 48px; }
-.dance-b .cat-tail { animation: tail-wag 0.4s ease-in-out infinite 0.2s; transform-origin: 44px 48px; }
-
-@keyframes kitty-bounce {
-  0%, 100% { transform: translateY(0) scaleY(1); }
-  50% { transform: translateY(-7px) scaleY(0.96); }
+.mobile-cat .dance-canvas {
+  width: 80px;
+  height: 106px;
 }
 
-@keyframes paw-pump-l {
-  0%, 100% { transform: rotate(-25deg) translateY(0); }
-  50% { transform: rotate(-110deg) translateY(-6px); }
-}
-
-@keyframes paw-pump-r {
-  0%, 100% { transform: rotate(25deg) translateY(0); }
-  50% { transform: rotate(110deg) translateY(-6px); }
-}
-
-@keyframes leg-step {
-  0%, 100% { transform: rotate(-8deg); }
-  50% { transform: rotate(10deg); }
-}
-
-@keyframes head-bob {
-  0%, 100% { transform: rotate(-6deg); }
-  50% { transform: rotate(6deg); }
-}
-
-@keyframes tail-wag {
-  0%, 100% { transform: rotate(8deg); }
-  50% { transform: rotate(-18deg); }
-}
+/* remove old svg dance styles if any leftover — canvases replace them */
 
 #app {
   position: relative;
