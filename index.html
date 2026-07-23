@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Pawco</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="stage">
+    <div class="side-cat side-cat-left" aria-hidden="true"></div>
+
+    <div id="app">
+      <canvas id="game" width="480" height="720" aria-label="Pawco game"></canvas>
+
+      <div id="hud" class="hidden">
+        <div class="hud-left">
+          <div class="label">SCORE</div>
+          <div id="score">0</div>
+        </div>
+        <div class="hud-mid">
+          <div id="combo" class="combo"></div>
+          <div id="judgement" class="judgement"></div>
+        </div>
+        <div class="hud-right">
+          <div class="label">LIVES</div>
+          <div id="lives">♥♥♥</div>
+          <button id="pauseBtn" class="pause-btn" type="button" title="Pause">❚❚</button>
+        </div>
+      </div>
+
+      <div class="mobile-cat" aria-hidden="true"></div>
+
+      <div id="title" class="overlay">
+        <p class="eyebrow">cute catch rhythm</p>
+        <h1>PAWCO</h1>
+        <p class="tag">Catch fish on each note. Long notes = long fish.</p>
+        <div id="skinRow" class="skin-row" aria-label="Choose paw color"></div>
+        <button id="playBtn" type="button">START</button>
+        <p class="hint">3…2…1… then the song — drag under the treats</p>
+      </div>
+
+      <div id="pause" class="overlay hidden">
+        <p class="eyebrow">paused</p>
+        <h2 class="pause-title">PAUSED</h2>
+        <button id="resumeBtn" type="button">RESUME</button>
+        <button id="restartBtn" class="btn-secondary" type="button">RESTART</button>
+      </div>
+
+      <div id="results" class="overlay hidden">
+        <p class="eyebrow" id="resultMood">meow…</p>
+        <h2 id="grade">C</h2>
+        <p class="tag" id="resultTitle">Treats secured</p>
+        <ul class="stats">
+          <li><span>Score</span><strong id="rScore">0</strong></li>
+          <li><span>Perfects</span><strong id="rPerfects">0</strong></li>
+          <li><span>Best combo</span><strong id="rCombo">0</strong></li>
+          <li><span>Accuracy</span><strong id="rAcc">0%</strong></li>
+        </ul>
+        <button id="retryBtn" type="button">AGAIN</button>
+      </div>
+    </div>
+
+    <div class="side-cat side-cat-right" aria-hidden="true"></div>
+  </div>
+  <script src="cats.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
