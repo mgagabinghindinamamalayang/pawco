@@ -180,9 +180,32 @@
       chart = await res.json();
       if (chart.bpm) TRACK_BPM = chart.bpm;
       if (typeof chart.offset === "number") TRACK_OFFSET = chart.offset;
+      chart.notes = sanitizeHoldWindows(chart.notes || []);
     } catch {
       chart = { notes: [] };
     }
+  }
+
+  /** Long notes are solo — strip any notes that start while a hold is still active. */
+  function sanitizeHoldWindows(notes) {
+    const list = notes.slice().sort((a, b) => a.t - b.t);
+    const holds = list.filter((n) => n.type === "hold" && (n.len || 0) >= 0.4);
+    const keepHolds = [];
+    const pad = 0.28; // breathing room after hold before next hit
+    for (const h of holds) {
+      const end = h.t + h.len;
+      const conflict = keepHolds.some((k) => {
+        const kend = k.t + k.len;
+        return !(end + pad <= k.t || kend + pad <= h.t);
+      });
+      if (!conflict) keepHolds.push(h);
+    }
+    const windows = keepHolds.map((h) => [h.t, h.t + h.len + pad]);
+    const keepHoldSet = new Set(keepHolds);
+    return list.filter((n) => {
+      if (n.type === "hold") return keepHoldSet.has(n);
+      return !windows.some(([start, end]) => n.t > start && n.t < end);
+    });
   }
 
   let songsReturnTo = "title"; // where BACK from song list goes
@@ -491,10 +514,29 @@
   function spawnDueChartNotes() {
     if (!chart.notes || !chart.notes.length) return;
     const now = songTimeNow();
+    // Don't drop new treats onto the field while a long note is still playing out
+    const activeHold = treats.find((t) =>
+      t.kind === "hold" && !t.judged && now < (t.hitTime + (t.holdLen || 0) + 0.05)
+    );
+    const holdBlockUntil = activeHold
+      ? activeHold.hitTime + (activeHold.holdLen || 0) + 0.05
+      : -1;
+
     while (chartCursor < chart.notes.length) {
       const n = chart.notes[chartCursor];
+      if (holdBlockUntil > 0 && n.t < holdBlockUntil) {
+        // Skip leftover overlapping chart entries if any
+        if (n.type !== "hold") {
+          chartCursor++;
+          continue;
+        }
+      }
       // spawn early so it arrives on the note time
       if (n.t - travelTime() <= now) {
+        // Wait to spawn until the active hold finishes (keeps the lane clear)
+        if (holdBlockUntil > 0 && n.t >= holdBlockUntil && now < holdBlockUntil - 0.02) {
+          break;
+        }
         spawnChartNote(n, chartCursor);
         chartCursor++;
       } else break;

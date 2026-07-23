@@ -206,7 +206,9 @@ def build_chart(audio_path: Path, density: float = 1.25) -> dict:
             continue
         cleaned.append(n)
 
-    # Small global offset hint (seconds) — usually 0; game can nudge
+    # No other notes while a long note is still active
+    cleaned = clear_notes_during_holds(cleaned, pad=max(0.12, min_gap * 0.5))
+
     return {
         "bpm": round(float(bpm), 2),
         "duration": round(duration, 2),
@@ -215,6 +217,46 @@ def build_chart(audio_path: Path, density: float = 1.25) -> dict:
         "start": round(start_t, 3),
         "notes": cleaned,
     }
+
+
+def clear_notes_during_holds(notes: list[dict], pad: float = 0.12) -> list[dict]:
+    """Drop taps/holds that start while another hold is still going.
+
+    Long notes should be solo — nothing else falling until they finish.
+    """
+    if not notes:
+        return notes
+
+    holds = [n for n in notes if n.get("type") == "hold" and float(n.get("len") or 0) >= 0.4]
+    holds.sort(key=lambda n: (n["t"], -float(n["len"])))
+    keep_holds: list[dict] = []
+    for h in holds:
+        end = h["t"] + float(h["len"])
+        conflict = False
+        for k in keep_holds:
+            kend = k["t"] + float(k["len"])
+            if not (end + pad <= k["t"] or kend + pad <= h["t"]):
+                conflict = True
+                break
+        if not conflict:
+            keep_holds.append(h)
+
+    hold_windows = [(h["t"], h["t"] + float(h["len"]) + pad) for h in keep_holds]
+    keep_ids = {id(h) for h in keep_holds}
+
+    out: list[dict] = []
+    for n in notes:
+        if n.get("type") == "hold":
+            if id(n) in keep_ids:
+                out.append(n)
+            continue
+        t = float(n["t"])
+        if any(start < t < end for start, end in hold_windows):
+            continue
+        out.append(n)
+
+    out.sort(key=lambda n: n["t"])
+    return out
 
 
 def main() -> None:
