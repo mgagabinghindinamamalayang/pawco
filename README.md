@@ -1,4 +1,4 @@
-# Pawco
+# Pawco Pulse
 
 Cute pixel catch-rhythm game inspired by *Like A Dino!* — drag a cat paw to catch falling treats.
 

@@ -1,4 +1,4 @@
-# Pawco — One-Page GDD
+# Pawco Pulse — One-Page GDD
 
 ## Pitch
 A cute pixel cat sits at the bottom. **Drag** to move its paw and catch falling treats on the beat. The game gets faster. Miss too many → sad meow.
