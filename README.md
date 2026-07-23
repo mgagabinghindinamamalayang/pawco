@@ -4,28 +4,28 @@ Cute pixel catch-rhythm game inspired by *Like A Dino!* — drag a cat paw to ca
 
 ## Play
 
-Open `index.html` in a browser (Chrome/Edge/Firefox), or from this folder:
+Open `index.html` in a browser, or:
 
 ```bash
 npx --yes serve .
 ```
 
-Then open the URL it prints (usually http://localhost:3000).
+**Controls:** drag mouse or finger under falling treats.
 
-**Controls:** move / drag mouse or finger — no keyboard needed.
+## Songs
+
+Pick a track on the title screen. To add more, see [MUSIC.md](MUSIC.md).
+
+| Song | Artist |
+|------|--------|
+| Cupid | Bongo Cat |
+| Soda Pop | Bongo Cat |
 
 ## Files
 
-| File | What |
-|---|---|
-| `PLAN.md` | One-page game design |
-| `index.html` | Shell + UI overlays |
-| `style.css` | Cute pixel UI |
-| `game.js` | Gameplay, art, procedural music |
-
-## MVP features
-
-- Drag paw tip to catch fish / yarn treats  
-- Speed + spawn ramp over time  
-- 3 lives, combo, score, grade  
-- Soft cute procedural song (Web Audio)
+| Path | What |
+|------|------|
+| `songs.json` | Song list catalog |
+| `songs/<id>/` | Audio + chart per song |
+| `tools/build_chart.py` | Generate a chart from an mp3 |
+| `game.js` | Gameplay |

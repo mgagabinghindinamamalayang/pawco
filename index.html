@@ -34,22 +34,39 @@
 
       <div class="mobile-cat" aria-hidden="true"></div>
 
+      <!-- MAIN MENU -->
       <div id="title" class="overlay">
         <p class="eyebrow">cute catch rhythm</p>
         <h1>PAWCO<br/>PULSE</h1>
         <p class="tag">Catch fish on each note. Long notes = long fish.</p>
         <div id="skinRow" class="skin-row" aria-label="Choose paw color"></div>
-        <button id="playBtn" type="button">START</button>
-        <p class="hint">3…2…1… then the song — drag under the treats</p>
+        <div class="menu-stack">
+          <button id="playBtn" type="button">START GAME</button>
+          <button id="quitBtn" class="btn-secondary" type="button">QUIT</button>
+        </div>
+        <p class="hint">drag under the treats · Esc / P to pause</p>
       </div>
 
+      <!-- SONG SELECT (after Start Game) -->
+      <div id="songs" class="overlay hidden">
+        <p class="eyebrow">pick a track</p>
+        <h2 class="panel-title">CHOOSE SONG</h2>
+        <div id="songList" class="song-list song-list-full" role="listbox" aria-label="Choose song"></div>
+        <button id="songsBackBtn" class="btn-secondary" type="button">BACK</button>
+      </div>
+
+      <!-- PAUSE -->
       <div id="pause" class="overlay hidden">
         <p class="eyebrow">paused</p>
         <h2 class="pause-title">PAUSED</h2>
-        <button id="resumeBtn" type="button">RESUME</button>
-        <button id="restartBtn" class="btn-secondary" type="button">RESTART</button>
+        <div class="menu-stack">
+          <button id="resumeBtn" type="button">RESUME</button>
+          <button id="restartBtn" class="btn-secondary" type="button">RESTART</button>
+          <button id="pauseQuitBtn" class="btn-secondary" type="button">QUIT</button>
+        </div>
       </div>
 
+      <!-- RESULTS -->
       <div id="results" class="overlay hidden">
         <p class="eyebrow" id="resultMood">meow…</p>
         <h2 id="grade">C</h2>
@@ -60,7 +77,19 @@
           <li><span>Best combo</span><strong id="rCombo">0</strong></li>
           <li><span>Accuracy</span><strong id="rAcc">0%</strong></li>
         </ul>
-        <button id="retryBtn" type="button">AGAIN</button>
+        <div class="menu-stack">
+          <button id="retryBtn" type="button">AGAIN</button>
+          <button id="menuBtn" class="btn-secondary" type="button">MENU</button>
+          <button id="resultsQuitBtn" class="btn-secondary" type="button">QUIT</button>
+        </div>
+      </div>
+
+      <!-- QUIT / BYE -->
+      <div id="bye" class="overlay hidden">
+        <p class="eyebrow">bye bye</p>
+        <h2 class="panel-title">SEE YA!</h2>
+        <p class="tag">Thanks for playing Pawco Pulse</p>
+        <button id="byeBackBtn" type="button">BACK TO MENU</button>
       </div>
     </div>
 

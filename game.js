@@ -6,13 +6,17 @@
 
   const el = {
     title: document.getElementById("title"),
+    songs: document.getElementById("songs"),
     results: document.getElementById("results"),
+    bye: document.getElementById("bye"),
     hud: document.getElementById("hud"),
     score: document.getElementById("score"),
     lives: document.getElementById("lives"),
     combo: document.getElementById("combo"),
     judgement: document.getElementById("judgement"),
     playBtn: document.getElementById("playBtn"),
+    quitBtn: document.getElementById("quitBtn"),
+    songsBackBtn: document.getElementById("songsBackBtn"),
     retryBtn: document.getElementById("retryBtn"),
     grade: document.getElementById("grade"),
     resultMood: document.getElementById("resultMood"),
@@ -26,6 +30,11 @@
     pause: document.getElementById("pause"),
     resumeBtn: document.getElementById("resumeBtn"),
     restartBtn: document.getElementById("restartBtn"),
+    pauseQuitBtn: document.getElementById("pauseQuitBtn"),
+    songList: document.getElementById("songList"),
+    menuBtn: document.getElementById("menuBtn"),
+    resultsQuitBtn: document.getElementById("resultsQuitBtn"),
+    byeBackBtn: document.getElementById("byeBackBtn"),
   };
 
   // Paw tip (beans) at hit line — leg stays VERTICAL like a dino neck
@@ -43,9 +52,12 @@
   const HOLD_START_LATE = 0.18;
   const HOLD_END_GRACE = 0.06;
 
-  // Synced from chart.json (Cupid cover analysis)
-  let TRACK_BPM = 117.45;
-  let TRACK_OFFSET = 0; // chart times are absolute in mp3
+  // Active song (from songs.json)
+  let songsCatalog = [];
+  let selectedSongId = null;
+  let selectedSong = null;
+  let TRACK_BPM = 120;
+  let TRACK_OFFSET = 0;
   let AUDIO_LATENCY = 0.025;
   let chart = { notes: [] };
   let chartCursor = 0;
@@ -55,6 +67,7 @@
   let resumeState = "play";
   const TAP_EARLY = 0.11;
   const TAP_LATE = 0.13;
+  let songReady = false;
 
   // Pixel skins from your paw reference
   const SKINS = [
@@ -98,6 +111,7 @@
   let track = null; // HTMLAudioElement for real song
   let useTrack = false;
   let trackPulseAcc = 0;
+  let boundAudioPath = "";
 
   const CUTE_MELODY = [
     72, null, 74, null, 76, null, 74, null, 76, 79, 76, null, 74, null, 72, null,
@@ -133,16 +147,167 @@
     sfxGain.gain.value = 0.2;
     musicGain.connect(audioCtx.destination);
     sfxGain.connect(audioCtx.destination);
+  }
 
-    // Optional real track: drop file as music.mp3 next to index.html
-    if (!track) {
-      track = new Audio("music.mp3");
-      track.loop = true;
-      track.preload = "auto";
-      track.volume = 0.55;
-      track.addEventListener("canplaythrough", () => { useTrack = true; }, { once: true });
-      track.addEventListener("error", () => { useTrack = false; });
+  function bindTrack(src) {
+    if (track) {
+      track.pause();
+      track.removeAttribute("src");
       track.load();
+      track = null;
+    }
+    useTrack = false;
+    songReady = false;
+    boundAudioPath = src;
+    track = new Audio(src);
+    track.loop = false;
+    track.preload = "auto";
+    track.volume = 0.55;
+    track.addEventListener("canplaythrough", () => {
+      useTrack = true;
+      songReady = true;
+    }, { once: true });
+    track.addEventListener("error", () => {
+      useTrack = false;
+      songReady = false;
+    });
+    track.load();
+  }
+
+  async function loadChartFor(song) {
+    try {
+      const res = await fetch(song.chart);
+      chart = await res.json();
+      if (chart.bpm) TRACK_BPM = chart.bpm;
+      if (typeof chart.offset === "number") TRACK_OFFSET = chart.offset;
+    } catch {
+      chart = { notes: [] };
+    }
+  }
+
+  let songsReturnTo = "title"; // where BACK from song list goes
+
+  async function selectSong(id, { startAfter = false } = {}) {
+    const song = songsCatalog.find((s) => s.id === id) || songsCatalog[0];
+    if (!song) return;
+    selectedSongId = song.id;
+    selectedSong = song;
+    ensureAudio();
+    bindTrack(song.audio);
+    await loadChartFor(song);
+    renderSongList();
+    if (startAfter) beginRun();
+  }
+
+  function hideMenus() {
+    el.title?.classList.add("hidden");
+    el.songs?.classList.add("hidden");
+    el.results?.classList.add("hidden");
+    el.pause?.classList.add("hidden");
+    el.bye?.classList.add("hidden");
+  }
+
+  function showTitle() {
+    stopTrack();
+    state = "title";
+    hideMenus();
+    el.hud?.classList.add("hidden");
+    if (el.pauseBtn) el.pauseBtn.classList.add("hidden");
+    el.title?.classList.remove("hidden");
+    countdownFlash = "";
+  }
+
+  function openSongsPanel(from = "title") {
+    songsReturnTo = from;
+    if (from === "pause") {
+      // already paused
+    } else if (state === "play" || state === "countdown") {
+      pauseGame();
+      songsReturnTo = "pause";
+    }
+    el.songs?.classList.remove("hidden");
+    el.title?.classList.add("hidden");
+    el.results?.classList.add("hidden");
+    el.pause?.classList.add("hidden");
+    el.bye?.classList.add("hidden");
+    renderSongList();
+  }
+
+  function closeSongsPanel() {
+    el.songs?.classList.add("hidden");
+    if (songsReturnTo === "results") {
+      el.results?.classList.remove("hidden");
+      state = "over";
+    } else {
+      showTitle();
+    }
+  }
+
+  function showBye() {
+    stopTrack();
+    state = "bye";
+    hideMenus();
+    el.hud?.classList.add("hidden");
+    if (el.pauseBtn) el.pauseBtn.classList.add("hidden");
+    el.bye?.classList.remove("hidden");
+  }
+
+  function renderSongList() {
+    if (!el.songList) return;
+    el.songList.innerHTML = "";
+    if (!songsCatalog.length) {
+      const empty = document.createElement("p");
+      empty.className = "song-meta";
+      empty.textContent = "No songs yet — add entries in songs.json";
+      el.songList.appendChild(empty);
+      return;
+    }
+    for (const song of songsCatalog) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "song-btn" + (song.id === selectedSongId ? " active" : "");
+      b.setAttribute("role", "option");
+      b.setAttribute("aria-selected", song.id === selectedSongId ? "true" : "false");
+      b.innerHTML = `<span class="song-title">${escapeHtml(song.title)}</span>`;
+      b.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        // From Start Game flow → pick song and play
+        if (songsReturnTo === "title" || songsReturnTo === "start") {
+          await selectSong(song.id, { startAfter: true });
+          return;
+        }
+        await selectSong(song.id);
+        el.songs?.classList.add("hidden");
+        if (songsReturnTo === "results") {
+          el.results?.classList.remove("hidden");
+          state = "over";
+        } else {
+          showTitle();
+        }
+      });
+      el.songList.appendChild(b);
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
+
+  async function loadSongsCatalog() {
+    try {
+      const res = await fetch("songs.json");
+      const data = await res.json();
+      songsCatalog = Array.isArray(data.songs) ? data.songs : [];
+      const prefer = data.default || songsCatalog[0]?.id;
+      await selectSong(prefer);
+    } catch {
+      songsCatalog = [];
+      chart = { notes: [] };
+      renderSongList();
     }
   }
 
@@ -297,17 +462,6 @@
   function trackStepFloat() {
     return songTimeNow() / (60 / TRACK_BPM / 4);
   }
-
-  async function loadChart() {
-    try {
-      const res = await fetch("chart.json");
-      chart = await res.json();
-      if (chart.bpm) TRACK_BPM = chart.bpm;
-    } catch (e) {
-      chart = { notes: [] };
-    }
-  }
-  loadChart();
 
   function laneForNote(i) {
     // gentle zig-zag, not chaotic
@@ -555,7 +709,7 @@
   function endGame() {
     state = "over";
     stopTrack();
-    el.pause?.classList.add("hidden");
+    hideMenus();
     if (el.pauseBtn) el.pauseBtn.classList.add("hidden");
     playMeowSad();
     el.hud.classList.add("hidden");
@@ -585,12 +739,14 @@
     pauseSongTime = track ? track.currentTime : 0;
     if (track) track.pause();
     state = "paused";
+    el.songs?.classList.add("hidden");
     el.pause.classList.remove("hidden");
   }
 
   function resumeGame() {
     if (state !== "paused") return;
     el.pause.classList.add("hidden");
+    el.songs?.classList.add("hidden");
     ensureAudio();
     if (audioCtx?.state === "suspended") audioCtx.resume();
     state = resumeState || "play";
@@ -601,19 +757,30 @@
     if (state !== "countdown") countdownFlash = "";
   }
 
-  function startGame() {
+  function beginRun() {
     ensureAudio();
     if (audioCtx.state === "suspended") audioCtx.resume();
+    if (selectedSong && (!track || boundAudioPath !== selectedSong.audio)) {
+      bindTrack(selectedSong.audio);
+    }
     resetRun();
-    el.title.classList.add("hidden");
-    el.results.classList.add("hidden");
-    el.pause.classList.add("hidden");
+    hideMenus();
     el.hud.classList.remove("hidden");
     if (el.pauseBtn) el.pauseBtn.classList.remove("hidden");
     state = "countdown";
     countdownLeft = COUNTDOWN_SECS;
     countdownFlash = String(Math.ceil(countdownLeft));
     stopTrack();
+  }
+
+  function startGame() {
+    // Home → choose song first
+    if (state === "title" || state === "bye" || state === "over") {
+      songsReturnTo = "start";
+      openSongsPanel("start");
+      return;
+    }
+    beginRun();
   }
 
   function beginPlayAfterCountdown() {
@@ -673,14 +840,20 @@
     setPointerFromEvent(e);
   });
 
-  el.playBtn.addEventListener("click", startGame);
-  el.retryBtn.addEventListener("click", startGame);
+  el.playBtn?.addEventListener("click", startGame);
+  el.retryBtn?.addEventListener("click", () => beginRun());
+  el.songsBackBtn?.addEventListener("click", closeSongsPanel);
+  el.quitBtn?.addEventListener("click", showBye);
+  el.menuBtn?.addEventListener("click", showTitle);
+  el.resultsQuitBtn?.addEventListener("click", showBye);
+  el.byeBackBtn?.addEventListener("click", showTitle);
   el.pauseBtn?.addEventListener("click", (e) => {
     e.stopPropagation();
     pauseGame();
   });
   el.resumeBtn?.addEventListener("click", resumeGame);
-  el.restartBtn?.addEventListener("click", startGame);
+  el.restartBtn?.addEventListener("click", () => beginRun());
+  el.pauseQuitBtn?.addEventListener("click", showBye);
 
   window.addEventListener("keydown", (e) => {
     if (e.code === "Escape" || e.code === "KeyP") {
@@ -690,6 +863,7 @@
   });
 
   buildSkinRow();
+  loadSongsCatalog();
 
   function update(dt) {
     idleT += dt;

@@ -1,0 +1,29 @@
+{
+  "default": "cupid",
+  "songs": [
+    {
+      "id": "cupid",
+      "title": "Cupid",
+      "audio": "songs/cupid/audio.mp3",
+      "chart": "songs/cupid/chart.json"
+    },
+    {
+      "id": "soda-pop",
+      "title": "Soda Pop",
+      "audio": "songs/soda-pop/audio.mp3",
+      "chart": "songs/soda-pop/chart.json"
+    },
+    {
+      "id": "not-cute-anymore",
+      "title": "NOT CUTE ANYMORE",
+      "audio": "songs/not-cute-anymore/audio.mp3",
+      "chart": "songs/not-cute-anymore/chart.json"
+    },
+    {
+      "id": "love-scenario",
+      "title": "LOVE SCENARIO",
+      "audio": "songs/love-scenario/audio.mp3",
+      "chart": "songs/love-scenario/chart.json"
+    }
+  ]
+}
