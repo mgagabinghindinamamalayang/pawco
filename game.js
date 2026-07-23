@@ -186,12 +186,12 @@
     }
   }
 
-  /** Long notes are solo — strip any notes that start while a hold is still active. */
+  /** Long notes are solo — nothing else may hit during (or right after) a hold. */
   function sanitizeHoldWindows(notes) {
     const list = notes.slice().sort((a, b) => a.t - b.t);
     const holds = list.filter((n) => n.type === "hold" && (n.len || 0) >= 0.4);
     const keepHolds = [];
-    const pad = 0.28; // breathing room after hold before next hit
+    const pad = 0.4;
     for (const h of holds) {
       const end = h.t + h.len;
       const conflict = keepHolds.some((k) => {
@@ -200,7 +200,7 @@
       });
       if (!conflict) keepHolds.push(h);
     }
-    const windows = keepHolds.map((h) => [h.t, h.t + h.len + pad]);
+    const windows = keepHolds.map((h) => [h.t - 0.02, h.t + h.len + pad]);
     const keepHoldSet = new Set(keepHolds);
     return list.filter((n) => {
       if (n.type === "hold") return keepHoldSet.has(n);
@@ -494,6 +494,11 @@
 
   function spawnChartNote(note, index) {
     const isHold = note.type === "hold" && note.len >= 0.4;
+    const now = songTimeNow();
+    // If we spawned late (e.g. waited for a hold to finish), shorten fall so hit stays on time
+    const fullTravel = travelTime();
+    const remain = Math.max(0.45, note.t - now);
+    const travel = Math.min(fullTravel, remain);
     treats.push({
       x: laneForNote(index),
       y: SPAWN_Y,
@@ -502,7 +507,7 @@
       judged: false,
       kind: isHold ? "hold" : "fish",
       hitTime: note.t,
-      travel: travelTime(),
+      travel,
       holdLen: isHold ? Math.min(1.0, note.len) : 0,
       holding: false,
       holdAcc: 0,
@@ -511,34 +516,70 @@
     });
   }
 
+  function activeHoldEnd() {
+    const now = songTimeNow();
+    let end = -1;
+    for (const t of treats) {
+      if (t.kind !== "hold" || t.judged) continue;
+      const e = t.hitTime + (t.holdLen || 0) + 0.08;
+      if (e > now) end = Math.max(end, e);
+    }
+    return end;
+  }
+
+  function upcomingHoldWindow(fromTime) {
+    // Next hold in the chart that hasn't been spawned yet
+    for (let i = chartCursor; i < chart.notes.length; i++) {
+      const n = chart.notes[i];
+      if (n.type === "hold" && (n.len || 0) >= 0.4 && n.t >= fromTime - 0.01) {
+        return { start: n.t, end: n.t + n.len + 0.08 };
+      }
+    }
+    return null;
+  }
+
   function spawnDueChartNotes() {
     if (!chart.notes || !chart.notes.length) return;
     const now = songTimeNow();
-    // Don't drop new treats onto the field while a long note is still playing out
-    const activeHold = treats.find((t) =>
-      t.kind === "hold" && !t.judged && now < (t.hitTime + (t.holdLen || 0) + 0.05)
-    );
-    const holdBlockUntil = activeHold
-      ? activeHold.hitTime + (activeHold.holdLen || 0) + 0.05
-      : -1;
+    const holdEnd = activeHoldEnd();
+
+    // While a long note is alive on the field, spawn NOTHING else
+    if (holdEnd > now) return;
 
     while (chartCursor < chart.notes.length) {
       const n = chart.notes[chartCursor];
-      if (holdBlockUntil > 0 && n.t < holdBlockUntil) {
-        // Skip leftover overlapping chart entries if any
-        if (n.type !== "hold") {
+      const travel = travelTime();
+
+      // Don't start falling a tap that would still be on-screen during an upcoming hold
+      const nextHold = upcomingHoldWindow(now);
+      if (n.type !== "hold" && nextHold) {
+        const spawnAt = n.t - travel;
+        // If this note would appear before the hold finishes, skip it (chart should already be clean)
+        if (n.t > nextHold.start && n.t < nextHold.end) {
+          chartCursor++;
+          continue;
+        }
+        // If it would be falling while the hold is active, wait / skip
+        if (spawnAt < nextHold.end && n.t > nextHold.start) {
           chartCursor++;
           continue;
         }
       }
-      // spawn early so it arrives on the note time
-      if (n.t - travelTime() <= now) {
-        // Wait to spawn until the active hold finishes (keeps the lane clear)
-        if (holdBlockUntil > 0 && n.t >= holdBlockUntil && now < holdBlockUntil - 0.02) {
-          break;
-        }
+
+      if (n.t - travel <= now) {
         spawnChartNote(n, chartCursor);
         chartCursor++;
+        // After spawning a hold, clear any other fish still falling so the hold is alone
+        if (n.type === "hold") {
+          for (const t of treats) {
+            if (t.kind !== "hold" && !t.judged) {
+              t.alive = false;
+              t.judged = true; // soft despawn — no miss penalty
+            }
+          }
+          treats = treats.filter((t) => t.alive || t.kind === "hold");
+          break;
+        }
       } else break;
     }
   }

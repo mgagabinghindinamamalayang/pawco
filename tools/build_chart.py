@@ -207,7 +207,7 @@ def build_chart(audio_path: Path, density: float = 1.25) -> dict:
         cleaned.append(n)
 
     # No other notes while a long note is still active
-    cleaned = clear_notes_during_holds(cleaned, pad=max(0.12, min_gap * 0.5))
+    cleaned = clear_notes_during_holds(cleaned, pad=max(0.4, min_gap * 0.8))
 
     return {
         "bpm": round(float(bpm), 2),
@@ -219,7 +219,7 @@ def build_chart(audio_path: Path, density: float = 1.25) -> dict:
     }
 
 
-def clear_notes_during_holds(notes: list[dict], pad: float = 0.12) -> list[dict]:
+def clear_notes_during_holds(notes: list[dict], pad: float = 0.4) -> list[dict]:
     """Drop taps/holds that start while another hold is still going.
 
     Long notes should be solo — nothing else falling until they finish.

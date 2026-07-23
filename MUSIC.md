@@ -26,5 +26,6 @@ Charts use percussive + melodic onsets snapped tightly to the beat grid.
 | `not-cute-anymore` | NOT CUTE ANYMORE |
 | `love-scenario` | LOVE SCENARIO |
 | `super-shy` | Super Shy |
+| `anghang` | Anghang (My Humps) |
 
 If a song feels early/late, tweak `"offset"` in that song’s chart JSON (seconds).

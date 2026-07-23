@@ -30,6 +30,12 @@
       "title": "Super Shy",
       "audio": "songs/super-shy/audio.mp3",
       "chart": "songs/super-shy/chart.json"
+    },
+    {
+      "id": "anghang",
+      "title": "Anghang (My Humps)",
+      "audio": "songs/anghang/audio.mp3",
+      "chart": "songs/anghang/chart.json"
     }
   ]
 }
