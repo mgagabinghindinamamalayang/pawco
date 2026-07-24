@@ -140,7 +140,7 @@
     musicGain = audioCtx.createGain();
     sfxGain = audioCtx.createGain();
     musicGain.gain.value = 0.24;
-    sfxGain.gain.value = 0.2;
+    sfxGain.gain.value = 0.65;
     musicGain.connect(audioCtx.destination);
     sfxGain.connect(audioCtx.destination);
   }
@@ -385,12 +385,12 @@
   }
 
   function playCatch() {
-    tone(659, 0.07, "sine", sfxGain, 0.16);
-    tone(988, 0.12, "triangle", sfxGain, 0.12, 0.04);
+    tone(659, 0.07, "sine", sfxGain, 0.28);
+    tone(988, 0.12, "triangle", sfxGain, 0.22, 0.04);
   }
 
   function playMiss() {
-    tone(220, 0.18, "triangle", sfxGain, 0.12, 0, 140);
+    tone(220, 0.18, "triangle", sfxGain, 0.22, 0, 140);
   }
 
   /** Soft cute UI blip for every button tap. */
@@ -398,8 +398,8 @@
     ensureAudio();
     if (!audioCtx || !sfxGain) return;
     if (audioCtx.state === "suspended") audioCtx.resume();
-    tone(920, 0.045, "sine", sfxGain, 0.11);
-    tone(1380, 0.07, "triangle", sfxGain, 0.07, 0.018);
+    tone(920, 0.05, "sine", sfxGain, 0.22);
+    tone(1380, 0.08, "triangle", sfxGain, 0.16, 0.018);
   }
 
   /**
@@ -411,15 +411,15 @@
     if (!audioCtx || !sfxGain) return;
     if (audioCtx.state === "suspended") audioCtx.resume();
     // "mrr-" attack
-    softNoise(0.12, 0.045, sfxGain, 0, 1800);
-    tone(380, 0.12, "triangle", sfxGain, 0.14, 0, 620);
+    softNoise(0.12, 0.08, sfxGain, 0, 1800);
+    tone(380, 0.12, "triangle", sfxGain, 0.26, 0, 620);
     // main meow body — climb then wilt
-    tone(520, 0.22, "sine", sfxGain, 0.22, 0.08, 880);
-    tone(880, 0.55, "triangle", sfxGain, 0.18, 0.22, 260);
+    tone(520, 0.22, "sine", sfxGain, 0.38, 0.08, 880);
+    tone(880, 0.55, "triangle", sfxGain, 0.32, 0.22, 260);
     // soft second harmonic for cat-ish tone
-    tone(1100, 0.4, "sine", sfxGain, 0.07, 0.26, 300);
+    tone(1100, 0.4, "sine", sfxGain, 0.14, 0.26, 300);
     // little sad tail
-    tone(320, 0.35, "sine", sfxGain, 0.1, 0.55, 160);
+    tone(320, 0.35, "sine", sfxGain, 0.18, 0.55, 160);
   }
 
   function playMeowSad() {
