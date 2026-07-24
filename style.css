@@ -51,12 +51,11 @@ html, body {
   padding: 0;
 }
 
-.side-cat-left {
-  justify-self: center;
-}
-
+.side-cat-left,
 .side-cat-right {
   justify-self: center;
+  min-width: 120px;
+  z-index: 1;
 }
 
 .mobile-cat {
@@ -93,11 +92,97 @@ html, body {
   width: min(100vw, calc(100vh * 480 / 720));
   height: min(100vh, calc(100vw * 720 / 480));
   margin: 0;
-  box-shadow: 0 20px 60px var(--shadow);
-  border-radius: 18px;
+  box-shadow:
+    0 0 0 4px rgba(255, 248, 238, 0.95),
+    0 0 0 7px rgba(43, 42, 40, 0.88),
+    0 18px 50px var(--shadow);
+  border-radius: 22px;
   overflow: hidden;
   background: var(--cream);
   justify-self: center;
+}
+
+.frame-deco {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+
+.paw-corner {
+  position: absolute;
+  font-size: 14px;
+  color: rgba(196, 111, 40, 0.55);
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.paw-tl { top: 10px; left: 12px; }
+.paw-tr { top: 10px; right: 12px; transform: scaleX(-1); }
+.paw-bl {
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  opacity: 0.7;
+}
+.paw-br { bottom: 10px; right: 12px; }
+
+.frame-line {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(232, 154, 74, 0.45), transparent);
+}
+.frame-line-t { top: 28px; }
+.frame-line-b { bottom: 28px; }
+
+.cheer-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.cheer-layer.hidden {
+  display: none !important;
+}
+
+.cheer-yay {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Press Start 2P", monospace;
+  font-size: clamp(22px, 7vw, 34px);
+  color: #ff8aa0;
+  text-shadow: 3px 3px 0 #2b2a28;
+  animation: cheer-pop 0.7s ease-out both;
+}
+
+.cheer-bit {
+  position: absolute;
+  top: 110%;
+  font-size: 16px;
+  color: #e89a4a;
+  animation-name: cheer-float;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+
+@keyframes cheer-pop {
+  0% { transform: translateX(-50%) scale(0.4); opacity: 0; }
+  60% { transform: translateX(-50%) scale(1.12); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+@keyframes cheer-float {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-120vh) rotate(24deg); opacity: 0; }
 }
 
 @media (min-width: 700px) {
@@ -261,6 +346,7 @@ html, body {
   background:
     linear-gradient(180deg, rgba(255, 248, 238, 0.92), rgba(232, 246, 239, 0.94));
   backdrop-filter: blur(2px);
+  overflow: hidden;
 }
 
 .overlay.hidden, .hidden {

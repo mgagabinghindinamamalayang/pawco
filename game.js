@@ -34,6 +34,7 @@
     stageBanner: document.getElementById("stageBanner"),
     stageBannerTitle: document.getElementById("stageBannerTitle"),
     stageBannerSub: document.getElementById("stageBannerSub"),
+    cheerLayer: document.getElementById("cheerLayer"),
   };
 
   // Paw tip (beans) at hit line — leg stays VERTICAL like a dino neck
@@ -196,41 +197,49 @@
     }
   }
 
-  /** Long notes are solo — nothing else may hit during (or right after) a hold. */
+  /** Long notes are solo — clear taps that start while a hold is active. */
   function sanitizeHoldWindows(notes) {
     const list = notes.slice().sort((a, b) => a.t - b.t);
     const holds = list.filter((n) => n.type === "hold" && (n.len || 0) >= 0.4);
     const keepHolds = [];
-    const pad = 0.5;
+    const pad = 0.35;
     for (const h of holds) {
-      const end = h.t + h.len;
+      const end = h.t + Math.min(1.35, h.len);
       const conflict = keepHolds.some((k) => {
-        const kend = k.t + k.len;
+        const kend = k.t + Math.min(1.35, k.len);
         return !(end + pad <= k.t || kend + pad <= h.t);
       });
-      if (!conflict) keepHolds.push(h);
+      if (!conflict) keepHolds.push({ ...h, len: Math.min(1.35, h.len) });
     }
-    const windows = keepHolds.map((h) => [h.t - 0.02, h.t + h.len + pad]);
-    const keepHoldSet = new Set(keepHolds);
-    return list.filter((n) => {
-      if (n.type === "hold") return keepHoldSet.has(n);
-      return !windows.some(([start, end]) => n.t > start && n.t < end);
-    });
+    const windows = keepHolds.map((h) => [h.t - 0.01, h.t + h.len + pad]);
+    const keepTimes = new Set(keepHolds.map((h) => h.t));
+    const out = [];
+    for (const n of list) {
+      if (n.type === "hold") {
+        if (keepTimes.has(n.t)) {
+          out.push({ ...n, len: Math.min(1.35, n.len) });
+        }
+        continue;
+      }
+      if (windows.some(([start, end]) => n.t > start && n.t < end)) continue;
+      out.push(n);
+    }
+    return out;
   }
 
-  /** Verse-based stages: early = few notes, later = denser (Beatstar-style). */
+  /** Verse-based stages: early = fewer notes, later = denser — still playable. */
   function verseStages(duration) {
     if (duration > 200) {
       return [
-        { id: "NORMAL", title: "STAGE 1", sub: "NORMAL", start: 0, end: duration * 0.25, keep: 0.34 },
-        { id: "MID", title: "STAGE 2", sub: "MORE NOTES", start: duration * 0.25, end: duration * 0.5, keep: 0.55 },
-        { id: "HIGH", title: "STAGE 3", sub: "HIGH", start: duration * 0.5, end: duration * 0.75, keep: 0.78 },
+        { id: "NORMAL", title: "STAGE 1", sub: "NORMAL", start: 0, end: duration * 0.25, keep: 0.58 },
+        { id: "MID", title: "STAGE 2", sub: "MORE NOTES", start: duration * 0.25, end: duration * 0.5, keep: 0.78 },
+        { id: "HIGH", title: "STAGE 3", sub: "HIGH", start: duration * 0.5, end: duration * 0.75, keep: 0.92 },
         { id: "FINAL", title: "FINAL STAGE", sub: "MAX NOTES", start: duration * 0.75, end: duration + 99, keep: 1 },
       ];
     }
     return [
-      { id: "NORMAL", title: "STAGE 1", sub: "NORMAL", start: 0, end: duration * 0.34, keep: 0.36 },
-      { id: "MID", title: "STAGE 2", sub: "MORE NOTES", start: duration * 0.34, end: duration * 0.66, keep: 0.66 },
+      { id: "NORMAL", title: "STAGE 1", sub: "NORMAL", start: 0, end: duration * 0.34, keep: 0.7 },
+      { id: "MID", title: "STAGE 2", sub: "MORE NOTES", start: duration * 0.34, end: duration * 0.66, keep: 0.88 },
       { id: "HIGH", title: "FINAL STAGE", sub: "HIGH", start: duration * 0.66, end: duration + 99, keep: 1 },
     ];
   }
@@ -326,6 +335,7 @@
 
   function showTitle() {
     stopTrack();
+    stopCheer();
     state = "title";
     hideMenus();
     el.hud?.classList.add("hidden");
@@ -615,9 +625,8 @@
   function spawnChartNote(note, index) {
     const isHold = note.type === "hold" && note.len >= 0.4;
     const now = songTimeNow();
-    // If we spawned late (e.g. waited for a hold to finish), shorten fall so hit stays on time
     const fullTravel = travelTime();
-    const remain = Math.max(0.45, note.t - now);
+    const remain = Math.max(0.5, note.t - now);
     const travel = Math.min(fullTravel, remain);
     treats.push({
       x: laneForNote(index),
@@ -628,7 +637,7 @@
       kind: isHold ? "hold" : "fish",
       hitTime: note.t,
       travel,
-      holdLen: isHold ? Math.min(1.0, note.len) : 0,
+      holdLen: isHold ? Math.min(1.35, Math.max(0.45, note.len)) : 0,
       holding: false,
       holdAcc: 0,
       awayFrames: 0,
@@ -641,74 +650,28 @@
     let end = -1;
     for (const t of treats) {
       if (t.kind !== "hold" || t.judged) continue;
-      const e = t.hitTime + (t.holdLen || 0) + 0.08;
+      const e = t.hitTime + (t.holdLen || 0) + 0.05;
       if (e > now) end = Math.max(end, e);
     }
     return end;
   }
 
-  function upcomingHoldWindow(fromTime) {
-    // Next hold in the chart that hasn't been spawned yet
-    for (let i = chartCursor; i < chart.notes.length; i++) {
-      const n = chart.notes[i];
-      if (n.type === "hold" && (n.len || 0) >= 0.4 && n.t >= fromTime - 0.01) {
-        return { start: n.t, end: n.t + n.len + 0.08 };
-      }
-    }
-    return null;
-  }
-
   function spawnDueChartNotes() {
     if (!chart.notes || !chart.notes.length) return;
     const now = songTimeNow();
-    const holdEnd = activeHoldEnd();
 
-    // While a long note is on the field, WAIT — never skip upcoming notes
-    if (holdEnd > now) return;
+    // Hold owns the field — wait (do not skip chart notes)
+    if (activeHoldEnd() > now) return;
 
     while (chartCursor < chart.notes.length) {
       const n = chart.notes[chartCursor];
       const travel = travelTime();
-      const isHold = n.type === "hold" && (n.len || 0) >= 0.4;
-
-      // Skip only if this tap's hit lands inside a hold window (chart should already be clean)
-      if (!isHold) {
-        let covered = false;
-        for (const h of chart.notes) {
-          if (h.type !== "hold" || (h.len || 0) < 0.4) continue;
-          if (n.t > h.t && n.t < h.t + h.len + 0.45) {
-            covered = true;
-            break;
-          }
-        }
-        if (covered) {
-          chartCursor++;
-          continue;
-        }
-      }
-
-      // Upcoming hold: if this note hits after the hold, wait to spawn until hold is done
-      // (do NOT advance cursor — that was deleting mid-song notes)
-      const nextHold = upcomingHoldWindow(now);
-      if (!isHold && nextHold && n.t >= nextHold.end) {
-        if (nextHold.start - travel <= now && now < nextHold.end) {
-          break;
-        }
-      }
 
       if (n.t - travel <= now) {
         spawnChartNote(n, chartCursor);
         chartCursor++;
-        if (isHold) {
-          // Clear only fish that would still be judged during this hold
-          for (const t of treats) {
-            if (t.kind !== "hold" && !t.judged && t.hitTime >= n.t) {
-              t.alive = false;
-              t.judged = true;
-            }
-          }
-          break;
-        }
+        // After a hold spawns, stop this frame so taps don't join it
+        if (n.type === "hold" && (n.len || 0) >= 0.4) break;
       } else break;
     }
   }
@@ -921,6 +884,48 @@
     return "F";
   }
 
+  function playCheer() {
+    ensureAudio();
+    if (!audioCtx || !sfxGain) return;
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    tone(523, 0.1, "sine", sfxGain, 0.2);
+    tone(659, 0.12, "triangle", sfxGain, 0.22, 0.08);
+    tone(784, 0.14, "sine", sfxGain, 0.2, 0.16);
+    tone(1046, 0.28, "triangle", sfxGain, 0.18, 0.28);
+  }
+
+  function startCheer() {
+    const layer = el.cheerLayer;
+    if (!layer) return;
+    layer.innerHTML = "";
+    layer.classList.remove("hidden");
+    layer.setAttribute("aria-hidden", "false");
+
+    const yay = document.createElement("div");
+    yay.className = "cheer-yay";
+    yay.textContent = "YAY!";
+    layer.appendChild(yay);
+
+    const faces = ["ฅ^•ﻌ•^ฅ", "(=^･ω･^=)", "ฅ(˘̩̩̩ε˘̩ƪ)", "♡(˃͈ દ ˂͈ ༶ )"];
+    for (let i = 0; i < 10; i++) {
+      const p = document.createElement("span");
+      p.className = "cheer-bit";
+      p.textContent = i % 3 === 0 ? faces[i % faces.length] : "★";
+      p.style.left = `${8 + Math.random() * 84}%`;
+      p.style.animationDelay = `${Math.random() * 0.45}s`;
+      p.style.animationDuration = `${1.4 + Math.random() * 0.9}s`;
+      layer.appendChild(p);
+    }
+    playCheer();
+  }
+
+  function stopCheer() {
+    if (!el.cheerLayer) return;
+    el.cheerLayer.classList.add("hidden");
+    el.cheerLayer.setAttribute("aria-hidden", "true");
+    el.cheerLayer.innerHTML = "";
+  }
+
   function endGame({ lost = false } = {}) {
     state = "over";
     stopTrack();
@@ -928,7 +933,12 @@
     stageBannerTimer = 0;
     el.stageBanner?.classList.add("hidden");
     if (el.pauseBtn) el.pauseBtn.classList.add("hidden");
-    if (lost) playCatLose();
+    if (lost) {
+      stopCheer();
+      playCatLose();
+    } else {
+      startCheer();
+    }
     el.hud.classList.add("hidden");
     el.results.classList.remove("hidden");
     const g = gradeFor();
@@ -986,6 +996,7 @@
     if (selectedSong && (!track || boundAudioPath !== selectedSong.audio)) {
       bindTrack(selectedSong.audio);
     }
+    stopCheer();
     resetRun();
     hideMenus();
     el.hud.classList.remove("hidden");

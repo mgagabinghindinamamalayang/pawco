@@ -14,6 +14,14 @@
     <div class="side-cat side-cat-left" aria-hidden="true"></div>
 
     <div id="app">
+      <div class="frame-deco" aria-hidden="true">
+        <span class="paw-corner paw-tl">ฅ</span>
+        <span class="paw-corner paw-tr">ฅ</span>
+        <span class="paw-corner paw-bl">ฅ^•ﻌ•^ฅ</span>
+        <span class="paw-corner paw-br">ฅ</span>
+        <div class="frame-line frame-line-t"></div>
+        <div class="frame-line frame-line-b"></div>
+      </div>
       <canvas id="game" width="480" height="720" aria-label="Pawco Pulse game"></canvas>
 
       <div id="hud" class="hidden">
@@ -70,6 +78,7 @@
 
       <!-- RESULTS -->
       <div id="results" class="overlay hidden">
+        <div id="cheerLayer" class="cheer-layer hidden" aria-hidden="true"></div>
         <p class="eyebrow" id="resultMood">meow…</p>
         <h2 id="grade">C</h2>
         <p class="tag" id="resultTitle">Treats secured</p>
