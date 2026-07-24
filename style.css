@@ -111,15 +111,28 @@ html, body {
 
 @media (max-width: 699px) {
   .stage {
-    display: flex;
-    padding: 0;
+    display: grid;
+    grid-template-columns: minmax(72px, 1fr) auto minmax(72px, 1fr);
+    padding: 8px 4px;
     gap: 0;
+    width: 100%;
   }
   .side-cat {
+    display: flex;
+    height: min(42vh, 280px);
+    width: 100%;
+  }
+  .dance-canvas,
+  .maxwell-canvas {
+    width: min(26vw, 130px);
+    height: min(32vw, 160px);
+  }
+  /* Prefer the same left/right Maxwells; hide the old faded in-panel one */
+  .mobile-cat {
     display: none !important;
   }
-  .mobile-cat {
-    display: block;
+  #app {
+    width: min(100vw - 148px, calc(100vh * 480 / 720));
   }
 }
 
@@ -437,6 +450,53 @@ button:active {
   margin-top: 18px;
   font-size: 12px;
   color: var(--muted);
+}
+
+.stage-banner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 42%;
+  z-index: 6;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  animation: stage-banner-in 0.25s ease-out;
+}
+
+.stage-banner.hidden {
+  display: none !important;
+}
+
+.stage-banner-bar {
+  width: 100%;
+  background: rgba(18, 18, 20, 0.92);
+  border-top: 3px solid #fff;
+  border-bottom: 3px solid #fff;
+  padding: 14px 12px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#stageBannerTitle {
+  font-family: "Press Start 2P", monospace;
+  font-size: clamp(14px, 4vw, 20px);
+  color: #fff;
+  letter-spacing: 0.06em;
+}
+
+#stageBannerSub {
+  font-family: "Press Start 2P", monospace;
+  font-size: 8px;
+  color: #ffb347;
+  letter-spacing: 0.12em;
+}
+
+@keyframes stage-banner-in {
+  from { opacity: 0; transform: scaleX(0.85); }
+  to { opacity: 1; transform: scaleX(1); }
 }
 
 .stats {

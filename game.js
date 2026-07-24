@@ -31,6 +31,9 @@
     pauseQuitBtn: document.getElementById("pauseQuitBtn"),
     songList: document.getElementById("songList"),
     menuBtn: document.getElementById("menuBtn"),
+    stageBanner: document.getElementById("stageBanner"),
+    stageBannerTitle: document.getElementById("stageBannerTitle"),
+    stageBannerSub: document.getElementById("stageBannerSub"),
   };
 
   // Paw tip (beans) at hit line — leg stays VERTICAL like a dino neck
@@ -55,7 +58,7 @@
   let TRACK_BPM = 120;
   let TRACK_OFFSET = 0;
   let AUDIO_LATENCY = 0.04;
-  let chart = { notes: [] };
+  let chart = { notes: [], stages: [], duration: 0 };
   let chartCursor = 0;
   let countdownLeft = 0;
   let countdownFlash = "";
@@ -64,6 +67,8 @@
   const TAP_EARLY = 0.11;
   const TAP_LATE = 0.13;
   let songReady = false;
+  let lastStageId = null;
+  let stageBannerTimer = 0;
 
   // Pixel skins from your paw reference
   const SKINS = [
@@ -173,12 +178,21 @@
   async function loadChartFor(song) {
     try {
       const res = await fetch(song.chart);
-      chart = await res.json();
-      if (chart.bpm) TRACK_BPM = chart.bpm;
-      if (typeof chart.offset === "number") TRACK_OFFSET = chart.offset;
-      chart.notes = sanitizeHoldWindows(chart.notes || []);
+      const raw = await res.json();
+      if (raw.bpm) TRACK_BPM = raw.bpm;
+      if (typeof raw.offset === "number") TRACK_OFFSET = raw.offset;
+      const duration = raw.duration || (raw.notes?.length ? raw.notes[raw.notes.length - 1].t + 2 : 120);
+      const cleaned = sanitizeHoldWindows(raw.notes || []);
+      const staged = buildStagedNotes(cleaned, duration);
+      chart = {
+        ...raw,
+        duration,
+        stages: staged.stages,
+        notes: staged.notes,
+      };
+      lastStageId = null;
     } catch {
-      chart = { notes: [] };
+      chart = { notes: [], stages: [], duration: 0 };
     }
   }
 
@@ -187,7 +201,7 @@
     const list = notes.slice().sort((a, b) => a.t - b.t);
     const holds = list.filter((n) => n.type === "hold" && (n.len || 0) >= 0.4);
     const keepHolds = [];
-    const pad = 0.4;
+    const pad = 0.5;
     for (const h of holds) {
       const end = h.t + h.len;
       const conflict = keepHolds.some((k) => {
@@ -202,6 +216,91 @@
       if (n.type === "hold") return keepHoldSet.has(n);
       return !windows.some(([start, end]) => n.t > start && n.t < end);
     });
+  }
+
+  /** Verse-based stages: early = few notes, later = denser (Beatstar-style). */
+  function verseStages(duration) {
+    if (duration > 200) {
+      return [
+        { id: "NORMAL", title: "STAGE 1", sub: "NORMAL", start: 0, end: duration * 0.25, keep: 0.34 },
+        { id: "MID", title: "STAGE 2", sub: "MORE NOTES", start: duration * 0.25, end: duration * 0.5, keep: 0.55 },
+        { id: "HIGH", title: "STAGE 3", sub: "HIGH", start: duration * 0.5, end: duration * 0.75, keep: 0.78 },
+        { id: "FINAL", title: "FINAL STAGE", sub: "MAX NOTES", start: duration * 0.75, end: duration + 99, keep: 1 },
+      ];
+    }
+    return [
+      { id: "NORMAL", title: "STAGE 1", sub: "NORMAL", start: 0, end: duration * 0.34, keep: 0.36 },
+      { id: "MID", title: "STAGE 2", sub: "MORE NOTES", start: duration * 0.34, end: duration * 0.66, keep: 0.66 },
+      { id: "HIGH", title: "FINAL STAGE", sub: "HIGH", start: duration * 0.66, end: duration + 99, keep: 1 },
+    ];
+  }
+
+  function thinSection(notes, keepRatio) {
+    if (keepRatio >= 0.98 || notes.length <= 4) return notes.slice();
+    const holds = notes.filter((n) => n.type === "hold");
+    const taps = notes.filter((n) => n.type !== "hold");
+    const target = Math.max(2, Math.round(taps.length * keepRatio));
+    if (taps.length <= target) return notes.slice();
+    const picked = [];
+    const used = new Set();
+    for (let i = 0; i < target; i++) {
+      const idx = Math.round((i * (taps.length - 1)) / Math.max(1, target - 1));
+      if (!used.has(idx)) {
+        used.add(idx);
+        picked.push(taps[idx]);
+      }
+    }
+    return holds.concat(picked).sort((a, b) => a.t - b.t);
+  }
+
+  function buildStagedNotes(notes, duration) {
+    const stages = verseStages(duration);
+    const out = [];
+    for (const stage of stages) {
+      const slice = notes.filter((n) => n.t >= stage.start && n.t < stage.end);
+      const thinned = thinSection(slice, stage.keep).map((n) => ({ ...n, stage: stage.id }));
+      out.push(...thinned);
+    }
+    out.sort((a, b) => a.t - b.t);
+    return { stages, notes: sanitizeHoldWindows(out) };
+  }
+
+  function stageAtTime(t) {
+    const stages = chart.stages || [];
+    if (!stages.length) {
+      return { id: "NORMAL", title: "STAGE 1", sub: "NORMAL" };
+    }
+    for (const s of stages) {
+      if (t >= s.start && t < s.end) return s;
+    }
+    return stages[stages.length - 1];
+  }
+
+  function showStageBanner(stage) {
+    if (!el.stageBanner) return;
+    if (el.stageBannerTitle) el.stageBannerTitle.textContent = stage.title || stage.id;
+    if (el.stageBannerSub) el.stageBannerSub.textContent = stage.sub || "";
+    el.stageBanner.classList.remove("hidden");
+    el.stageBanner.setAttribute("aria-hidden", "false");
+    stageBannerTimer = 1.8;
+  }
+
+  function updateStageBanner(dt) {
+    if (stageBannerTimer <= 0) return;
+    stageBannerTimer -= dt;
+    if (stageBannerTimer <= 0) {
+      el.stageBanner?.classList.add("hidden");
+      el.stageBanner?.setAttribute("aria-hidden", "true");
+    }
+  }
+
+  function checkStageTransition(now) {
+    const stage = stageAtTime(now);
+    if (stage.id !== lastStageId) {
+      const first = lastStageId == null;
+      lastStageId = stage.id;
+      if (!first) showStageBanner(stage);
+    }
   }
 
   let songsReturnTo = "title"; // where BACK from song list goes
@@ -233,6 +332,8 @@
     if (el.pauseBtn) el.pauseBtn.classList.add("hidden");
     el.title?.classList.remove("hidden");
     countdownFlash = "";
+    stageBannerTimer = 0;
+    el.stageBanner?.classList.add("hidden");
   }
 
   function openSongsPanel(from = "title") {
@@ -430,44 +531,41 @@
     return 440 * Math.pow(2, (m - 69) / 12);
   }
 
-  // NORMAL → MID → HIGH → MAX — song + falls speed up together
+  // Stages = note density by verse. Song stays near normal speed.
   function speedPhase() {
-    const t = trackPlaying() ? (track?.currentTime || elapsed) : elapsed;
-    if (t < 28) return "NORMAL";
-    if (t < 55) return "MID";
-    if (t < 85) return "HIGH";
-    return "MAX";
+    const t = trackPlaying() ? songTimeNow() : elapsed;
+    return stageAtTime(t).id || "NORMAL";
   }
 
   function speedLabel() {
-    return speedPhase();
+    const s = stageAtTime(trackPlaying() ? songTimeNow() : elapsed);
+    return s.id || "NORMAL";
   }
 
   function playbackRate() {
+    // Tiny bump only — keep the song enjoyable
     switch (speedPhase()) {
       case "NORMAL": return 1.0;
-      case "MID": return 1.12;
-      case "HIGH": return 1.25;
-      default: return 1.38; // MAX
+      case "MID": return 1.02;
+      case "HIGH": return 1.04;
+      case "FINAL": return 1.06;
+      default: return 1.0;
     }
   }
 
   function travelTime() {
     switch (speedPhase()) {
-      case "NORMAL": return 1.85;
-      case "MID": return 1.5;
-      case "HIGH": return 1.22;
-      default: return 1.0; // falls in quicker
+      case "NORMAL": return 1.8;
+      case "MID": return 1.7;
+      case "HIGH": return 1.6;
+      case "FINAL": return 1.5;
+      default: return 1.75;
     }
   }
 
   function currentBpm() {
     if (trackPlaying()) return TRACK_BPM * playbackRate();
-    const t = elapsed;
-    if (t < 28) return 100 + t * 0.25;
-    if (t < 55) return 108 + (t - 28) * 0.55;
-    if (t < 85) return 123 + (t - 55) * 0.4;
-    return Math.min(155, 135 + (t - 85) * 0.35);
+    return 110;
   }
 
   function applySongSpeed() {
@@ -565,41 +663,50 @@
     const now = songTimeNow();
     const holdEnd = activeHoldEnd();
 
-    // While a long note is alive on the field, spawn NOTHING else
+    // While a long note is on the field, WAIT — never skip upcoming notes
     if (holdEnd > now) return;
 
     while (chartCursor < chart.notes.length) {
       const n = chart.notes[chartCursor];
       const travel = travelTime();
+      const isHold = n.type === "hold" && (n.len || 0) >= 0.4;
 
-      // Don't start falling a tap that would still be on-screen during an upcoming hold
-      const nextHold = upcomingHoldWindow(now);
-      if (n.type !== "hold" && nextHold) {
-        const spawnAt = n.t - travel;
-        // If this note would appear before the hold finishes, skip it (chart should already be clean)
-        if (n.t > nextHold.start && n.t < nextHold.end) {
+      // Skip only if this tap's hit lands inside a hold window (chart should already be clean)
+      if (!isHold) {
+        let covered = false;
+        for (const h of chart.notes) {
+          if (h.type !== "hold" || (h.len || 0) < 0.4) continue;
+          if (n.t > h.t && n.t < h.t + h.len + 0.45) {
+            covered = true;
+            break;
+          }
+        }
+        if (covered) {
           chartCursor++;
           continue;
         }
-        // If it would be falling while the hold is active, wait / skip
-        if (spawnAt < nextHold.end && n.t > nextHold.start) {
-          chartCursor++;
-          continue;
+      }
+
+      // Upcoming hold: if this note hits after the hold, wait to spawn until hold is done
+      // (do NOT advance cursor — that was deleting mid-song notes)
+      const nextHold = upcomingHoldWindow(now);
+      if (!isHold && nextHold && n.t >= nextHold.end) {
+        if (nextHold.start - travel <= now && now < nextHold.end) {
+          break;
         }
       }
 
       if (n.t - travel <= now) {
         spawnChartNote(n, chartCursor);
         chartCursor++;
-        // After spawning a hold, clear any other fish still falling so the hold is alone
-        if (n.type === "hold") {
+        if (isHold) {
+          // Clear only fish that would still be judged during this hold
           for (const t of treats) {
-            if (t.kind !== "hold" && !t.judged) {
+            if (t.kind !== "hold" && !t.judged && t.hitTime >= n.t) {
               t.alive = false;
-              t.judged = true; // soft despawn — no miss penalty
+              t.judged = true;
             }
           }
-          treats = treats.filter((t) => t.alive || t.kind === "hold");
           break;
         }
       } else break;
@@ -628,6 +735,9 @@
     chartCursor = 0;
     countdownLeft = 0;
     countdownFlash = "";
+    lastStageId = null;
+    stageBannerTimer = 0;
+    el.stageBanner?.classList.add("hidden");
     updateHud();
   }
 
@@ -815,6 +925,8 @@
     state = "over";
     stopTrack();
     hideMenus();
+    stageBannerTimer = 0;
+    el.stageBanner?.classList.add("hidden");
     if (el.pauseBtn) el.pauseBtn.classList.add("hidden");
     if (lost) playCatLose();
     el.hud.classList.add("hidden");
@@ -899,6 +1011,9 @@
     countdownFlash = "GO!";
     setTimeout(() => { if (state === "play") countdownFlash = ""; }, 450);
     startTrack();
+    const s = stageAtTime(0);
+    lastStageId = s.id;
+    showStageBanner(s);
   }
 
   function setPointerFromEvent(e) {
@@ -1022,8 +1137,10 @@
 
     if (usingChart && trackPlaying()) {
       applySongSpeed();
-      spawnDueChartNotes();
       const now = songTimeNow();
+      checkStageTransition(now);
+      updateStageBanner(dt);
+      spawnDueChartNotes();
       if (Math.floor(now * TRACK_BPM / 60) !== Math.floor((now - dt) * TRACK_BPM / 60)) {
         beatPulse = 1;
       }
@@ -1218,10 +1335,7 @@
 
         ctx.fillStyle = "#6d6a63";
         ctx.font = "8px 'Press Start 2P', monospace";
-        const bpmShow = Math.round(currentBpm());
-        const rate = trackPlaying() ? playbackRate() : 1;
-        const rateTxt = rate > 1.01 ? `  x${rate.toFixed(2)}` : "";
-        ctx.fillText(`${speedLabel()}${rateTxt}  ${bpmShow}`, 16, H - 16);
+        ctx.fillText(`${speedLabel()}`, 16, H - 16);
       }
     }
   }
