@@ -1,5 +1,5 @@
 /**
- * Maxwell the Cat dancers — green-screen WebM with chroma key + crop.
+ * Maxwell the Cat dancers — green-screen WebM with chroma key + light crop.
  */
 (() => {
   const SRC = "assets/maxwell.webm";
@@ -10,17 +10,6 @@
     const greenDominant = g > 85 && g > r * 1.3 && g > b * 1.2;
     const veryGreen = g > 130 && r < 125 && b < 125;
     return greenDominant || veryGreen;
-  }
-
-  function isJunkEdge(r, g, b, y) {
-    // Black bar / underline artifact under the cat (bottom of frame)
-    const dark = r < 42 && g < 42 && b < 42;
-    if (dark && y > OUT_H * 0.62) return true;
-    // Near-black thin line
-    if (r < 55 && g < 55 && b < 55 && Math.abs(r - g) < 10 && Math.abs(g - b) < 10 && y > OUT_H * 0.58) {
-      return true;
-    }
-    return false;
   }
 
   function makeDancer({ flip = false, opacity = 1 } = {}) {
@@ -69,16 +58,15 @@
       const vw = video.videoWidth || 1;
       const vh = video.videoHeight || 1;
 
-      // Crop source: trim black bar under cat + a little edge padding
-      const cropL = vw * 0.06;
-      const cropR = vw * 0.06;
-      const cropT = vh * 0.04;
-      const cropB = vh * 0.16; // kills the black underline
+      // Light crop only — trim a thin bottom bar, keep the full cat body
+      const cropL = vw * 0.04;
+      const cropR = vw * 0.04;
+      const cropT = vh * 0.02;
+      const cropB = vh * 0.045;
       const sw = Math.max(1, vw - cropL - cropR);
       const sh = Math.max(1, vh - cropT - cropB);
 
-      // Contain-fit cropped frame into canvas (centered)
-      const scale = Math.min(OUT_W / sw, OUT_H / sh) * 1.08;
+      const scale = Math.min(OUT_W / sw, OUT_H / sh) * 1.05;
       const dw = sw * scale;
       const dh = sh * scale;
       const dx = (OUT_W - dw) / 2;
@@ -89,18 +77,29 @@
 
       const frame = ctx.getImageData(0, 0, OUT_W, OUT_H);
       const d = frame.data;
+      const bottomBand = Math.floor(OUT_H * 0.92); // only touch the very bottom edge
+
       for (let i = 0; i < d.length; i += 4) {
         const r = d[i];
         const g = d[i + 1];
         const b = d[i + 2];
         const y = Math.floor((i / 4) / OUT_W);
-        if (isGreenScreen(r, g, b) || isJunkEdge(r, g, b, y)) {
+
+        if (isGreenScreen(r, g, b)) {
           d[i + 3] = 0;
-        } else {
-          const greenish = g - Math.max(r, b);
-          if (greenish > 35 && g > 75) {
-            d[i + 3] = Math.max(0, d[i + 3] - greenish * 1.6);
-          }
+          continue;
+        }
+
+        // Soft green fringe
+        const greenish = g - Math.max(r, b);
+        if (greenish > 35 && g > 75) {
+          d[i + 3] = Math.max(0, d[i + 3] - greenish * 1.6);
+        }
+
+        // Only strip a thin pure-black underline at the extreme bottom
+        // (do NOT remove black fur — Maxwell's body is black)
+        if (y >= bottomBand && r < 28 && g < 28 && b < 28) {
+          d[i + 3] = 0;
         }
       }
       ctx.putImageData(frame, 0, 0);
