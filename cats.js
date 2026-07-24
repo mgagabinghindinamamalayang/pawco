@@ -1,139 +1,95 @@
 /**
- * Multi-step dancing cats (Go Kitty Go vibe)
- * 4 clear poses: rest → pump-L → pump-both → pump-R
+ * Maxwell the Cat dancers — green-screen WebM with chroma key.
  */
 (() => {
-  const W = 72;
-  const H = 96;
+  const SRC = "assets/maxwell.webm";
+  const OUT_W = 160;
+  const OUT_H = 200;
 
-  function drawPose(ctx, pose, palette) {
-    const { fur, stripe, belly, pad, outline, blush } = palette;
-    const px = (x, y, w, h, c) => {
-      ctx.fillStyle = c;
-      ctx.fillRect(x, y, w, h);
-    };
-
-    ctx.clearRect(0, 0, W, H);
-
-    // ground shadow
-    ctx.fillStyle = "rgba(43,42,40,0.12)";
-    ctx.beginPath();
-    ctx.ellipse(36, 90, 18, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // arm offsets by pose (Go Kitty: paws pump)
-    // pose 0 rest, 1 left high, 2 both high, 3 right high
-    const arms = [
-      { lx: 8, ly: 48, rx: 56, ry: 48 },
-      { lx: 4, ly: 18, rx: 54, ry: 46 },
-      { lx: 6, ly: 14, rx: 58, ry: 14 },
-      { lx: 10, ly: 46, rx: 60, ry: 18 },
-    ][pose];
-
-    const legLift = [0, -2, 0, -2][pose];
-    const bodyY = [50, 48, 46, 48][pose];
-    const headY = [26, 24, 22, 24][pose];
-    const lean = [0, -2, 0, 2][pose];
-
-    // tail
-    px(48 + lean, bodyY + 2, 4, 14, outline);
-    px(50 + lean, bodyY - 6, 4, 12, fur);
-    px(52 + lean, bodyY - 12, 4, 8, fur);
-
-    // back arm
-    px(arms.lx - 1, arms.ly - 1, 10, 18, outline);
-    px(arms.lx, arms.ly, 8, 16, fur);
-    px(arms.lx - 1, arms.ly - 6, 10, 10, outline);
-    px(arms.lx, arms.ly - 5, 8, 8, fur);
-    // beans
-    px(arms.lx + 1, arms.ly - 3, 2, 2, pad);
-    px(arms.lx + 4, arms.ly - 4, 2, 2, pad);
-    px(arms.lx + 5, arms.ly - 1, 2, 2, pad);
-
-    // body
-    px(20 + lean, bodyY - 2, 28, 30, outline);
-    px(22 + lean, bodyY, 24, 26, fur);
-    px(26 + lean, bodyY + 8, 16, 14, belly);
-    px(24 + lean, bodyY + 4, 20, 3, stripe);
-    px(25 + lean, bodyY + 12, 18, 3, stripe);
-
-    // front arm
-    px(arms.rx - 1, arms.ry - 1, 10, 18, outline);
-    px(arms.rx, arms.ry, 8, 16, fur);
-    px(arms.rx - 1, arms.ry - 6, 10, 10, outline);
-    px(arms.rx, arms.ry - 5, 8, 8, fur);
-    px(arms.rx + 1, arms.ry - 3, 2, 2, pad);
-    px(arms.rx + 4, arms.ry - 4, 2, 2, pad);
-    px(arms.rx + 5, arms.ry - 1, 2, 2, pad);
-
-    // legs
-    px(24 + lean, 72 + legLift, 10, 14, outline);
-    px(26 + lean, 72 + legLift, 8, 12, fur);
-    px(38 + lean, 72 - legLift, 10, 14, outline);
-    px(40 + lean, 72 - legLift, 8, 12, fur);
-    px(24 + lean, 84 + legLift, 12, 5, outline);
-    px(26 + lean, 84 + legLift, 10, 4, fur);
-    px(36 + lean, 84 - legLift, 12, 5, outline);
-    px(38 + lean, 84 - legLift, 10, 4, fur);
-
-    // head
-    px(20 + lean, headY - 2, 28, 26, outline);
-    px(22 + lean, headY, 24, 22, fur);
-    // ears
-    px(22 + lean, headY - 10, 8, 12, outline);
-    px(24 + lean, headY - 8, 6, 10, fur);
-    px(25 + lean, headY - 6, 3, 5, pad);
-    px(38 + lean, headY - 10, 8, 12, outline);
-    px(40 + lean, headY - 8, 6, 10, fur);
-    px(42 + lean, headY - 6, 3, 5, pad);
-    // face
-    px(28 + lean, headY + 6, 3, 3, outline);
-    px(41 + lean, headY + 6, 3, 3, outline);
-    px(34 + lean, headY + 10, 4, 3, pad);
-    px(32 + lean, headY + 14, 8, 2, outline);
-    px(24 + lean, headY + 10, 4, 3, blush);
-    px(44 + lean, headY + 10, 4, 3, blush);
+  function isGreenScreen(r, g, b) {
+    // Key bright green backdrop; keep black/white cat fur
+    const greenDominant = g > 90 && g > r * 1.35 && g > b * 1.25;
+    const veryGreen = g > 140 && r < 120 && b < 120;
+    return greenDominant || veryGreen;
   }
 
-  const PAL_ORANGE = {
-    fur: "#f0a04a",
-    stripe: "#d97828",
-    belly: "#ffe0c2",
-    pad: "#ffb0a8",
-    outline: "#2b2a28",
-    blush: "#ffc0b8",
-  };
-  const PAL_GRAY = {
-    fur: "#9aa3ad",
-    stripe: "#6d7682",
-    belly: "#e8eef2",
-    pad: "#f0c4bc",
-    outline: "#2b2a28",
-    blush: "#e8b4b0",
-  };
-
-  function makeDancer(palette, speed = 140) {
+  function makeDancer({ flip = false, opacity = 1 } = {}) {
     const canvas = document.createElement("canvas");
-    canvas.width = W;
-    canvas.height = H;
-    canvas.className = "dance-canvas";
-    const ctx = canvas.getContext("2d");
-    ctx.imageSmoothingEnabled = false;
-    let frame = 0;
-    let acc = 0;
-    const order = [0, 1, 2, 3, 2, 1]; // few clear dance steps loop
+    canvas.width = OUT_W;
+    canvas.height = OUT_H;
+    canvas.className = "dance-canvas maxwell-canvas";
+    if (flip) canvas.classList.add("flip");
+    canvas.style.opacity = String(opacity);
 
-    function tick(dt) {
-      acc += dt;
-      if (acc >= speed) {
-        acc = 0;
-        frame = (frame + 1) % order.length;
-        drawPose(ctx, order[frame], palette);
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const video = document.createElement("video");
+    video.src = SRC;
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.setAttribute("playsinline", "");
+    video.setAttribute("muted", "");
+
+    let ready = false;
+    let started = false;
+
+    const tryPlay = () => {
+      if (started) return;
+      const p = video.play();
+      if (p && typeof p.then === "function") {
+        p.then(() => { started = true; }).catch(() => {});
+      } else {
+        started = true;
       }
+    };
+
+    video.addEventListener("loadeddata", () => {
+      ready = true;
+      tryPlay();
+    });
+    video.addEventListener("canplay", tryPlay);
+
+    // Autoplay often needs a user gesture — also kick on first click/tap
+    const kick = () => tryPlay();
+    window.addEventListener("pointerdown", kick, { once: true });
+    window.addEventListener("keydown", kick, { once: true });
+
+    function tick() {
+      if (!ready || video.readyState < 2) return;
+      const vw = video.videoWidth || 1;
+      const vh = video.videoHeight || 1;
+
+      // Cover-fit into canvas
+      const scale = Math.max(OUT_W / vw, OUT_H / vh);
+      const dw = vw * scale;
+      const dh = vh * scale;
+      const dx = (OUT_W - dw) / 2;
+      const dy = (OUT_H - dh) / 2;
+
+      ctx.clearRect(0, 0, OUT_W, OUT_H);
+      ctx.drawImage(video, dx, dy, dw, dh);
+
+      const frame = ctx.getImageData(0, 0, OUT_W, OUT_H);
+      const d = frame.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i];
+        const g = d[i + 1];
+        const b = d[i + 2];
+        if (isGreenScreen(r, g, b)) {
+          d[i + 3] = 0;
+        } else {
+          // Soft edge: reduce alpha near green
+          const greenish = g - Math.max(r, b);
+          if (greenish > 40 && g > 80) {
+            d[i + 3] = Math.max(0, d[i + 3] - greenish * 1.5);
+          }
+        }
+      }
+      ctx.putImageData(frame, 0, 0);
     }
 
-    drawPose(ctx, 0, palette);
-    return { el: canvas, tick };
+    return { el: canvas, tick, tryPlay };
   }
 
   const dancers = [];
@@ -142,30 +98,32 @@
   const mobile = document.querySelector(".mobile-cat");
 
   if (left) {
-    const d = makeDancer(PAL_ORANGE, 130);
+    const d = makeDancer({ flip: false });
     left.innerHTML = "";
     left.appendChild(d.el);
     dancers.push(d);
   }
   if (right) {
-    const d = makeDancer(PAL_GRAY, 145);
+    const d = makeDancer({ flip: true });
     right.innerHTML = "";
     right.appendChild(d.el);
     dancers.push(d);
   }
   if (mobile) {
-    const d = makeDancer(PAL_ORANGE, 130);
+    const d = makeDancer({ flip: false, opacity: 0.35 });
     mobile.innerHTML = "";
     mobile.appendChild(d.el);
     dancers.push(d);
   }
 
-  let last = performance.now();
-  function loop(now) {
-    const dt = now - last;
-    last = now;
-    for (const d of dancers) d.tick(dt);
+  function loop() {
+    for (const d of dancers) d.tick();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
+
+  // Also try play when Start is clicked
+  document.getElementById("playBtn")?.addEventListener("click", () => {
+    for (const d of dancers) d.tryPlay();
+  });
 })();

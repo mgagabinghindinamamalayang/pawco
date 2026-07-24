@@ -42,11 +42,11 @@ html, body {
 
 .side-cat {
   display: none;
-  width: 100px;
+  width: 140px;
   flex-shrink: 0;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 8vh;
+  padding-bottom: 6vh;
 }
 
 .mobile-cat {
@@ -54,26 +54,29 @@ html, body {
   pointer-events: none;
   position: absolute;
   left: 50%;
-  bottom: 5%;
+  bottom: 4%;
   transform: translateX(-50%);
-  opacity: 0.3;
+  opacity: 1;
   z-index: 1;
 }
 
-.dance-canvas {
+.dance-canvas,
+.maxwell-canvas {
   display: block;
-  width: 96px;
-  height: 128px;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+  width: 140px;
+  height: 175px;
+  image-rendering: auto;
 }
 
-.mobile-cat .dance-canvas {
-  width: 80px;
-  height: 106px;
+.maxwell-canvas.flip {
+  transform: scaleX(-1);
 }
 
-/* remove old svg dance styles if any leftover — canvases replace them */
+.mobile-cat .dance-canvas,
+.mobile-cat .maxwell-canvas {
+  width: 100px;
+  height: 125px;
+}
 
 #app {
   position: relative;
