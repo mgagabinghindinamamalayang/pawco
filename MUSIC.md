@@ -3,8 +3,7 @@
 ## Flow
 
 - **START GAME** → choose song + paw color → countdown → play
-- **QUIT** — bye screen
-- In-game: Pause (❚❚ / Esc / P) → Resume, Restart, Quit
+- In-game: Pause (❚❚ / Esc / P) → Resume, Restart, Main Menu
 
 ## Add a song
 

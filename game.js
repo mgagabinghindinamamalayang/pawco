@@ -8,14 +8,12 @@
     title: document.getElementById("title"),
     songs: document.getElementById("songs"),
     results: document.getElementById("results"),
-    bye: document.getElementById("bye"),
     hud: document.getElementById("hud"),
     score: document.getElementById("score"),
     lives: document.getElementById("lives"),
     combo: document.getElementById("combo"),
     judgement: document.getElementById("judgement"),
     playBtn: document.getElementById("playBtn"),
-    quitBtn: document.getElementById("quitBtn"),
     songsBackBtn: document.getElementById("songsBackBtn"),
     retryBtn: document.getElementById("retryBtn"),
     grade: document.getElementById("grade"),
@@ -33,8 +31,6 @@
     pauseQuitBtn: document.getElementById("pauseQuitBtn"),
     songList: document.getElementById("songList"),
     menuBtn: document.getElementById("menuBtn"),
-    resultsQuitBtn: document.getElementById("resultsQuitBtn"),
-    byeBackBtn: document.getElementById("byeBackBtn"),
   };
 
   // Paw tip (beans) at hit line — leg stays VERTICAL like a dino neck
@@ -227,7 +223,6 @@
     el.songs?.classList.add("hidden");
     el.results?.classList.add("hidden");
     el.pause?.classList.add("hidden");
-    el.bye?.classList.add("hidden");
   }
 
   function showTitle() {
@@ -252,7 +247,6 @@
     el.title?.classList.add("hidden");
     el.results?.classList.add("hidden");
     el.pause?.classList.add("hidden");
-    el.bye?.classList.add("hidden");
     renderSongList();
   }
 
@@ -266,13 +260,9 @@
     }
   }
 
-  function showBye() {
+  function exitToMainMenu() {
     stopTrack();
-    state = "bye";
-    hideMenus();
-    el.hud?.classList.add("hidden");
-    if (el.pauseBtn) el.pauseBtn.classList.add("hidden");
-    el.bye?.classList.remove("hidden");
+    showTitle();
   }
 
   function renderSongList() {
@@ -369,9 +359,10 @@
     o.stop(t0 + dur + 0.03);
   }
 
-  function softNoise(dur, vol) {
+  function softNoise(dur, vol, dest = null, when = 0, highpass = 4200) {
     if (!audioCtx) return;
-    const t0 = audioCtx.currentTime;
+    const out = dest || musicGain;
+    const t0 = audioCtx.currentTime + when;
     const frames = Math.max(1, Math.floor(audioCtx.sampleRate * dur));
     const buf = audioCtx.createBuffer(1, frames, audioCtx.sampleRate);
     const data = buf.getChannelData(0);
@@ -380,13 +371,15 @@
     const g = audioCtx.createGain();
     const f = audioCtx.createBiquadFilter();
     src.buffer = buf;
-    f.type = "highpass";
-    f.frequency.value = 4200;
-    g.gain.setValueAtTime(vol, t0);
+    f.type = "bandpass";
+    f.frequency.value = highpass;
+    f.Q.value = 0.9;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.001, vol), t0 + 0.015);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     src.connect(f);
     f.connect(g);
-    g.connect(musicGain);
+    g.connect(out);
     src.start(t0);
     src.stop(t0 + dur + 0.02);
   }
@@ -400,8 +393,37 @@
     tone(220, 0.18, "triangle", sfxGain, 0.12, 0, 140);
   }
 
+  /** Soft cute UI blip for every button tap. */
+  function playUiClick() {
+    ensureAudio();
+    if (!audioCtx || !sfxGain) return;
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    tone(920, 0.045, "sine", sfxGain, 0.11);
+    tone(1380, 0.07, "triangle", sfxGain, 0.07, 0.018);
+  }
+
+  /**
+   * Defeated cat meow — whiny rise then sad fall when all 3 lives are gone.
+   * Synthesized (no sample file) so it stays cute + on-brand.
+   */
+  function playCatLose() {
+    ensureAudio();
+    if (!audioCtx || !sfxGain) return;
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    // "mrr-" attack
+    softNoise(0.12, 0.045, sfxGain, 0, 1800);
+    tone(380, 0.12, "triangle", sfxGain, 0.14, 0, 620);
+    // main meow body — climb then wilt
+    tone(520, 0.22, "sine", sfxGain, 0.22, 0.08, 880);
+    tone(880, 0.55, "triangle", sfxGain, 0.18, 0.22, 260);
+    // soft second harmonic for cat-ish tone
+    tone(1100, 0.4, "sine", sfxGain, 0.07, 0.26, 300);
+    // little sad tail
+    tone(320, 0.35, "sine", sfxGain, 0.1, 0.55, 160);
+  }
+
   function playMeowSad() {
-    tone(480, 0.4, "sine", sfxGain, 0.18, 0, 200);
+    playCatLose();
   }
 
   function midiToFreq(m) {
@@ -776,7 +798,7 @@
     playMiss();
     showJudgement("MISS", "miss");
     updateHud();
-    if (lives <= 0) endGame();
+    if (lives <= 0) endGame({ lost: true });
   }
 
   function gradeFor() {
@@ -789,12 +811,12 @@
     return "F";
   }
 
-  function endGame() {
+  function endGame({ lost = false } = {}) {
     state = "over";
     stopTrack();
     hideMenus();
     if (el.pauseBtn) el.pauseBtn.classList.add("hidden");
-    playMeowSad();
+    if (lost) playCatLose();
     el.hud.classList.add("hidden");
     el.results.classList.remove("hidden");
     const g = gradeFor();
@@ -812,8 +834,14 @@
       C: ["warming up", "feel the beat"],
       F: ["sleepy kitty", "try again, cutie"],
     };
-    el.resultMood.textContent = moods[g][0];
-    el.resultTitle.textContent = moods[g][1];
+    const loseMoods = ["ouww… no more lives", "sad little meow"];
+    if (lost) {
+      el.resultMood.textContent = loseMoods[0];
+      el.resultTitle.textContent = loseMoods[1];
+    } else {
+      el.resultMood.textContent = moods[g][0];
+      el.resultTitle.textContent = moods[g][1];
+    }
   }
 
   function pauseGame() {
@@ -858,7 +886,7 @@
 
   function startGame() {
     // Home → choose song first
-    if (state === "title" || state === "bye" || state === "over") {
+    if (state === "title" || state === "over") {
       songsReturnTo = "start";
       openSongsPanel("start");
       return;
@@ -923,20 +951,28 @@
     setPointerFromEvent(e);
   });
 
+  // Cute click for every button in the app
+  document.getElementById("app")?.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      playUiClick();
+    },
+    true
+  );
+
   el.playBtn?.addEventListener("click", startGame);
   el.retryBtn?.addEventListener("click", () => beginRun());
   el.songsBackBtn?.addEventListener("click", closeSongsPanel);
-  el.quitBtn?.addEventListener("click", showBye);
-  el.menuBtn?.addEventListener("click", showTitle);
-  el.resultsQuitBtn?.addEventListener("click", showBye);
-  el.byeBackBtn?.addEventListener("click", showTitle);
+  el.menuBtn?.addEventListener("click", exitToMainMenu);
   el.pauseBtn?.addEventListener("click", (e) => {
     e.stopPropagation();
     pauseGame();
   });
   el.resumeBtn?.addEventListener("click", resumeGame);
   el.restartBtn?.addEventListener("click", () => beginRun());
-  el.pauseQuitBtn?.addEventListener("click", showBye);
+  el.pauseQuitBtn?.addEventListener("click", exitToMainMenu);
 
   window.addEventListener("keydown", (e) => {
     if (e.code === "Escape" || e.code === "KeyP") {
@@ -1052,7 +1088,7 @@
         return now < t.hitTime + (t.holdLen || 0) + 0.25;
       });
 
-      if (track && track.ended) endGame();
+      if (track && track.ended) endGame({ lost: false });
       return;
     }
 
