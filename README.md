@@ -20,6 +20,12 @@ Pick a track on the title screen. To add more, see [MUSIC.md](MUSIC.md).
 |------|--------|
 | Cupid | Bongo Cat |
 | Soda Pop | Bongo Cat |
+| NOT CUTE ANYMORE | Bongo Cat |
+| LOVE SCENARIO | Bongo Cat |
+| Super Shy | Bongo Cat |
+| Strategy | Bongo Cat |
+| Butter | Bongo Cat |
+| Anghang (My Humps) | Bongo Cat |
 
 ## Files
 

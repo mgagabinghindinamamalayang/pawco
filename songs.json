@@ -32,6 +32,18 @@
       "chart": "songs/super-shy/chart.json"
     },
     {
+      "id": "strategy",
+      "title": "Strategy",
+      "audio": "songs/strategy/audio.mp3",
+      "chart": "songs/strategy/chart.json"
+    },
+    {
+      "id": "butter",
+      "title": "Butter",
+      "audio": "songs/butter/audio.mp3",
+      "chart": "songs/butter/chart.json"
+    },
+    {
       "id": "anghang",
       "title": "Anghang (My Humps)",
       "audio": "songs/anghang/audio.mp3",
